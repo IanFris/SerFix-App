@@ -43,18 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _continueAsGuest() async {
-    final auth = context.read<AuthProvider>();
-    await auth.startGuestSession();
-    if (!mounted || auth.currentUser != null) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(auth.errorMessage ?? 'Gagal memulai mode tamu.'),
-        backgroundColor: const Color(0xFFEF4444),
-      ),
-    );
-  }
-
   Future<void> _showServerConfigDialog() async {
     final settings = context.read<SettingsProvider>();
     final controller = TextEditingController(text: settings.apiBaseUrl);
@@ -88,13 +76,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   label: const Text('Localhost (Web/Desktop)',
                       style: TextStyle(fontSize: 11)),
                   onPressed: () =>
-                      controller.text = 'http://localhost/autolog/api',
+                      controller.text = 'http://localhost/serfix/api',
                 ),
                 ActionChip(
                   label: const Text('10.0.2.2 (Emulator Android)',
                       style: TextStyle(fontSize: 11)),
                   onPressed: () =>
-                      controller.text = 'http://10.0.2.2/autolog/api',
+                      controller.text = 'http://10.0.2.2/serfix/api',
                 ),
               ],
             ),
@@ -174,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                     child: const Icon(
-                      Icons.directions_car_filled_rounded,
+                      Icons.home_repair_service_rounded,
                       size: 38,
                       color: Colors.white,
                     ),
@@ -202,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const Text(
-                  'tanpa lupa jadwal servis.',
+                  'terpercaya, transparan.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 27,
@@ -291,56 +279,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             Icon(Icons.arrow_forward_rounded, size: 18),
                           ],
                         ),
-                ),
-                const SizedBox(height: 18),
-                const Row(
-                  children: [
-                    Expanded(child: Divider()),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text(
-                        'atau tanpa akun',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF87939C),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    Expanded(child: Divider()),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                OutlinedButton.icon(
-                  onPressed: auth.isLoading ? null : _continueAsGuest,
-                  icon: const Icon(Icons.person_outline_rounded),
-                  label: const Text('Lanjutkan sebagai Tamu'),
-                ),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0F8B80).withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.phone_android_rounded,
-                          size: 16, color: Color(0xFF0F8B80)),
-                      SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Mode tamu menyimpan data hanya di perangkat ini.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF536A70),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
                 const SizedBox(height: 20),
                 Row(

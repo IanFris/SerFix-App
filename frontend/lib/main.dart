@@ -3,8 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'providers/auth_provider.dart';
-import 'providers/vehicle_provider.dart';
-import 'providers/service_provider.dart';
 import 'providers/settings_provider.dart';
 import 'providers/serfix_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -31,10 +29,6 @@ class SerfixApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>(create: (_) => AuthProvider()),
-        ChangeNotifierProvider<VehicleProvider>(
-            create: (_) => VehicleProvider()),
-        ChangeNotifierProvider<ServiceProvider>(
-            create: (_) => ServiceProvider()),
         ChangeNotifierProvider<SerfixProvider>(create: (_) => SerfixProvider()),
         ChangeNotifierProvider<SettingsProvider>(
             create: (_) => SettingsProvider()),

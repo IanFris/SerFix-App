@@ -23,7 +23,7 @@ if (empty($email) || empty($password)) {
 $db = (new Database())->getConnection();
 
 try {
-    $stmt = $db->prepare("SELECT id, name, email, password_hash FROM users WHERE email = :email LIMIT 1");
+    $stmt = $db->prepare("SELECT id, name, email, password_hash, role FROM users WHERE email = :email LIMIT 1");
     $stmt->execute([':email' => $email]);
     $user = $stmt->fetch();
 
@@ -36,7 +36,8 @@ try {
         "user" => [
             "id"    => (int)$user['id'],
             "name"  => $user['name'],
-            "email" => $user['email']
+            "email" => $user['email'],
+            "role" => $user['role']
         ],
         "token" => $token
     ]);

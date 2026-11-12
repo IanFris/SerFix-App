@@ -85,8 +85,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty)
+                    if (val == null || val.trim().isEmpty) {
                       return 'Nama wajib diisi';
+                    }
                     return null;
                   },
                 ),
@@ -102,8 +103,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty)
+                    if (val == null || val.trim().isEmpty) {
                       return 'Email wajib diisi';
+                    }
                     if (!val.contains('@')) return 'Format email tidak valid';
                     return null;
                   },
@@ -128,8 +130,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ),
                   validator: (val) {
-                    if (val == null || val.isEmpty)
+                    if (val == null || val.isEmpty) {
                       return 'Password wajib diisi';
+                    }
                     if (val.length < 6) return 'Password minimal 6 karakter';
                     return null;
                   },

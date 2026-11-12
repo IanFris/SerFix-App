@@ -1,12 +1,12 @@
 <?php
 // ====================================================================
-// AutoLog Backend - Database Connection (PDO)
-// Host: localhost | Database: autolog_db | User: root | Password: ""
+// SerFix Backend - Database Connection (PDO)
+// Host: localhost | Database: serfix_db | User: root | Password: ""
 // ====================================================================
 
 class Database {
     private string $host = "localhost";
-    private string $db_name = "autolog_db";
+    private string $db_name = "serfix_db";
     private string $username = "root";
     private string $password = "";
     private ?PDO $conn = null;

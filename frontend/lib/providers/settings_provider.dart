@@ -32,7 +32,12 @@ class SettingsProvider extends ChangeNotifier {
 
       final savedBaseUrl = prefs.getString(_apiBaseUrlKey);
       if (savedBaseUrl != null) {
-        ApiConstants.setCustomBaseUrl(savedBaseUrl);
+        final migratedBaseUrl = switch (savedBaseUrl) {
+          'http://localhost/autolog/api' => 'http://localhost/serfix/api',
+          'http://10.0.2.2/autolog/api' => 'http://10.0.2.2/serfix/api',
+          _ => savedBaseUrl,
+        };
+        ApiConstants.setCustomBaseUrl(migratedBaseUrl);
       }
     } catch (e) {
       _errorMessage = 'Gagal memuat pengaturan: $e';

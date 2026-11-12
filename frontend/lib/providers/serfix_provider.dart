@@ -1,174 +1,231 @@
 import 'package:flutter/foundation.dart';
 
-enum SerfixRole { customer, technician, admin, manager }
+import '../models/serfix_models.dart';
+import '../models/user.dart';
+import '../services/api_service.dart';
 
-enum ServiceRequestStatus {
-  requested,
-  scheduled,
-  inProgress,
-  waitingApproval,
-  completed
-}
-
-extension SerfixRoleLabel on SerfixRole {
-  String get label => switch (this) {
-        SerfixRole.customer => 'Pelanggan',
-        SerfixRole.technician => 'Teknisi',
-        SerfixRole.admin => 'Admin',
-        SerfixRole.manager => 'Manajer',
-      };
-}
-
-extension ServiceRequestStatusLabel on ServiceRequestStatus {
-  String get label => switch (this) {
-        ServiceRequestStatus.requested => 'Menunggu penugasan',
-        ServiceRequestStatus.scheduled => 'Teknisi ditugaskan',
-        ServiceRequestStatus.inProgress => 'Sedang dikerjakan',
-        ServiceRequestStatus.waitingApproval => 'Menunggu persetujuan biaya',
-        ServiceRequestStatus.completed => 'Selesai',
-      };
-}
-
-class SerfixRequest {
-  const SerfixRequest({
-    required this.id,
-    required this.customerName,
-    required this.service,
-    required this.device,
-    required this.address,
-    required this.scheduledAt,
-    required this.status,
-    required this.estimate,
-    this.technicianName,
-    this.technicianId,
-    this.parts = const [],
-    this.warrantyMonths = 0,
-  });
-
-  final int id;
-  final String customerName;
-  final String service;
-  final String device;
-  final String address;
-  final DateTime scheduledAt;
-  final ServiceRequestStatus status;
-  final int estimate;
-  final String? technicianName;
-  final int? technicianId;
-  final List<String> parts;
-  final int warrantyMonths;
-
-  DateTime get scheduledEnd => scheduledAt.add(const Duration(hours: 2));
-}
+export '../models/serfix_models.dart';
 
 class SerfixProvider extends ChangeNotifier {
-  SerfixRole _role = SerfixRole.customer;
-  int _nextId = 1004;
-  final List<SerfixRequest> _requests = [];
+  User? _user;
+  List<ServiceCategory> _categories = [];
+  List<SerfixRequest> _requests = [];
+  List<SerfixTechnician> _technicians = [];
+  List<SerfixPart> _parts = [];
+  List<Map<String, dynamic>> _warranties = [];
+  List<Map<String, dynamic>> _payments = [];
+  List<Map<String, dynamic>> _staff = [];
+  Map<String, dynamic> _summary = {};
+  bool _isLoading = false;
+  String? _errorMessage;
 
-  SerfixProvider() {
-    final tomorrow = DateTime.now().add(const Duration(days: 1));
-    final lastWeek = DateTime.now().subtract(const Duration(days: 7));
-    _requests.addAll([
-      SerfixRequest(
-        id: 1001,
-        customerName: 'Nadia Putri',
-        service: 'Servis AC',
-        device: 'AC Daikin 1 PK',
-        address: 'Jl. Melati No. 8, Bandung',
-        scheduledAt: DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9),
-        status: ServiceRequestStatus.scheduled,
-        estimate: 350000,
-        technicianName: 'Rizky Pratama',
-        technicianId: 7,
-      ),
-      SerfixRequest(
-        id: 1002,
-        customerName: 'Budi Santoso',
-        service: 'Perbaikan kulkas',
-        device: 'Kulkas 2 pintu',
-        address: 'Jl. Anggrek No. 10, Bandung',
-        scheduledAt: DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 10),
-        status: ServiceRequestStatus.inProgress,
-        estimate: 425000,
-        technicianName: 'Rizky Pratama',
-        technicianId: 7,
-        parts: ['Relay starter'],
-      ),
-      SerfixRequest(
-        id: 1003,
-        customerName: 'Nadia Putri',
-        service: 'Perbaikan mesin cuci',
-        device: 'Mesin cuci front load',
-        address: 'Jl. Melati No. 8, Bandung',
-        scheduledAt: DateTime(lastWeek.year, lastWeek.month, lastWeek.day, 13),
-        status: ServiceRequestStatus.completed,
-        estimate: 280000,
-        technicianName: 'Dewi Lestari',
-        technicianId: 9,
-        parts: ['Selang pembuangan'],
-        warrantyMonths: 3,
-      ),
-    ]);
-  }
-
-  SerfixRole get role => _role;
+  SerfixRole get role => switch (_user?.role) {
+        'technician' => SerfixRole.technician,
+        'admin' => SerfixRole.admin,
+        'manager' => SerfixRole.manager,
+        _ => SerfixRole.customer,
+      };
+  List<ServiceCategory> get categories => List.unmodifiable(_categories);
   List<SerfixRequest> get requests => List.unmodifiable(_requests);
-  List<SerfixRequest> get technicianRequests => List.unmodifiable(
-      _requests.where((request) => request.technicianId == 7));
+  List<SerfixTechnician> get technicians => List.unmodifiable(_technicians);
+  List<SerfixPart> get parts => List.unmodifiable(_parts);
+  List<Map<String, dynamic>> get warranties => List.unmodifiable(_warranties);
+  List<Map<String, dynamic>> get payments => List.unmodifiable(_payments);
+  List<Map<String, dynamic>> get staff => List.unmodifiable(_staff);
+  Map<String, dynamic> get summary => Map.unmodifiable(_summary);
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
-  void setRole(SerfixRole role) {
-    if (_role == role) return;
-    _role = role;
-    notifyListeners();
+  Future<void> load(User user) async {
+    _user = user;
+    await refresh();
   }
 
-  bool hasTechnicianConflict(SerfixRequest request) {
-    if (request.technicianId == null) return false;
-    return _requests.any((other) =>
-        other.id != request.id &&
-        other.technicianId == request.technicianId &&
-        other.scheduledAt.year == request.scheduledAt.year &&
-        other.scheduledAt.month == request.scheduledAt.month &&
-        other.scheduledAt.day == request.scheduledAt.day &&
-        request.scheduledAt.isBefore(other.scheduledEnd) &&
-        other.scheduledAt.isBefore(request.scheduledEnd));
-  }
-
-  bool isSlotAvailable(DateTime slot) {
-    return !_requests.any((request) =>
-        request.status != ServiceRequestStatus.completed &&
-        request.scheduledAt.year == slot.year &&
-        request.scheduledAt.month == slot.month &&
-        request.scheduledAt.day == slot.day &&
-        slot.isBefore(request.scheduledEnd) &&
-        request.scheduledAt.isBefore(slot.add(const Duration(hours: 2))));
-  }
-
-  void createRequest({
-    required String customerName,
-    required String service,
-    required String device,
-    required String address,
-    required DateTime scheduledAt,
-  }) {
-    if (!isSlotAvailable(scheduledAt)) {
-      throw StateError(
-          'Jadwal tersebut berbenturan. Silakan pilih waktu lain.');
+  Future<void> refresh() async {
+    if (_user == null || _user!.isGuest) {
+      _errorMessage = 'Silakan masuk dengan akun SerFix untuk memuat data.';
+      notifyListeners();
+      return;
     }
-    _requests.insert(
-      0,
-      SerfixRequest(
-        id: _nextId++,
-        customerName: customerName,
-        service: service,
-        device: device,
-        address: address,
-        scheduledAt: scheduledAt,
-        status: ServiceRequestStatus.requested,
-        estimate: service == 'Servis AC' ? 350000 : 300000,
-      ),
-    );
+    _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
+    try {
+      final results = await Future.wait([
+        ApiService.getServiceCatalog(),
+        ApiService.getServiceRequests(),
+        ApiService.getDashboardSummary(),
+      ]);
+      _categories = results[0] as List<ServiceCategory>;
+      _requests = results[1] as List<SerfixRequest>;
+      _summary = results[2] as Map<String, dynamic>;
+      if (role == SerfixRole.admin || role == SerfixRole.manager) {
+        _technicians = await ApiService.getTechnicians();
+        _parts = await ApiService.getParts();
+        _warranties = await ApiService.getWarranties();
+        _payments = await ApiService.getPayments();
+        if (role == SerfixRole.admin) {
+          _staff = await ApiService.getStaff();
+        }
+      } else if (role == SerfixRole.technician) {
+        _parts = await ApiService.getParts();
+      } else {
+        _warranties = await ApiService.getWarranties();
+      }
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> createRequest({
+    required int categoryId,
+    required String deviceName,
+    required String issue,
+    required String address,
+    required String area,
+    required DateTime scheduledAt,
+  }) async {
+    await ApiService.createServiceRequest(
+      categoryId: categoryId,
+      deviceName: deviceName,
+      issue: issue,
+      address: address,
+      area: area,
+      scheduledAt: scheduledAt,
+    );
+    await refresh();
+  }
+
+  Future<void> assignRequest({
+    required int requestId,
+    required int technicianId,
+    required DateTime scheduledAt,
+  }) async {
+    await ApiService.assignServiceRequest(
+      requestId: requestId,
+      technicianId: technicianId,
+      scheduledAt: scheduledAt,
+    );
+    await refresh();
+  }
+
+  Future<List<SerfixTechnician>> findAvailableTechnicians(
+    SerfixRequest request,
+    DateTime scheduledAt,
+  ) =>
+      ApiService.getTechnicians(
+        area: request.area,
+        categoryId: request.categoryId,
+        requestedAt: scheduledAt,
+        durationMinutes: request.durationMinutes,
+      );
+
+  Future<void> approveEstimate(int requestId) async {
+    await ApiService.updateServiceRequest(requestId, 'approve_estimate');
+    await refresh();
+  }
+
+  Future<void> cancelRequest(int requestId) async {
+    await ApiService.updateServiceRequest(requestId, 'cancel');
+    await refresh();
+  }
+
+  Future<void> startWork(int requestId) async {
+    await ApiService.updateWorkOrder(requestId, 'start');
+    await refresh();
+  }
+
+  Future<void> saveWorkOrder({
+    required int requestId,
+    required String diagnosis,
+    required String description,
+    required String notes,
+    required List<Map<String, int>> parts,
+  }) async {
+    await ApiService.updateWorkOrder(
+      requestId,
+      'save',
+      diagnosis: diagnosis,
+      description: description,
+      notes: notes,
+      parts: parts,
+    );
+    await refresh();
+  }
+
+  Future<void> completeWork(int requestId) async {
+    await ApiService.updateWorkOrder(requestId, 'complete');
+    await refresh();
+  }
+
+  Future<void> createPayment(
+    int requestId,
+    String method,
+    String reference,
+  ) async {
+    await ApiService.createPayment(requestId, method, reference);
+    await refresh();
+  }
+
+  Future<void> verifyPayment(int paymentId, String decision) async {
+    await ApiService.verifyPayment(paymentId, decision);
+    await refresh();
+  }
+
+  Future<void> claimWarranty(int warrantyId, String description) async {
+    await ApiService.claimWarranty(warrantyId, description);
+    await refresh();
+  }
+
+  Future<void> decideWarrantyClaim(
+    int claimId,
+    String decision,
+    String notes,
+  ) async {
+    await ApiService.decideWarrantyClaim(claimId, decision, notes);
+    await refresh();
+  }
+
+  Future<void> createStaff({
+    required String name,
+    required String email,
+    required String password,
+    required String role,
+    String area = '',
+    String phone = '',
+    List<int> skills = const [],
+  }) async {
+    await ApiService.createStaff(
+      name: name,
+      email: email,
+      password: password,
+      role: role,
+      area: area,
+      phone: phone,
+      skills: skills,
+    );
+    await refresh();
+  }
+
+  Future<void> savePart({
+    int? id,
+    required String sku,
+    required String name,
+    required int stock,
+    required double unitPrice,
+    String description = '',
+  }) async {
+    await ApiService.savePart(
+      id: id,
+      sku: sku,
+      name: name,
+      stock: stock,
+      unitPrice: unitPrice,
+      description: description,
+    );
+    await refresh();
   }
 }

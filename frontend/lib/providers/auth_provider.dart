@@ -23,6 +23,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> _loadSession() async {
     final user = await SessionService.getUser();
     if (user == null ||
+        user.isGuest ||
         (!user.isGuest && (user.token == null || user.token!.isEmpty))) {
       await SessionService.clearUser();
       _currentUser = null;
@@ -34,25 +35,9 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> startGuestSession() async {
-    _isLoading = true;
-    _errorMessage = null;
+    _errorMessage =
+        'Silakan masuk dengan akun SerFix untuk menggunakan layanan.';
     notifyListeners();
-    try {
-      final user = User(
-        id: 0,
-        name: 'Tamu',
-        email: 'guest@local.autolog',
-        isGuest: true,
-      );
-      await SessionService.saveUser(user);
-      _currentUser = user;
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _isLoading = false;
-      _errorMessage = 'Gagal memulai mode tamu: $e';
-      notifyListeners();
-    }
   }
 
   Future<bool> login(String email, String password) async {
@@ -97,20 +82,20 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     final token = _currentUser?.token;
+    var logoutError = false;
+    if (token != null && token.isNotEmpty) {
+      try {
+        await ApiService.logout(token);
+      } catch (e) {
+        logoutError = true;
+      }
+    }
     _currentUser = null;
     await SessionService.clearUser();
+    _errorMessage = logoutError
+        ? 'Sesi lokal sudah dihapus, tetapi server belum mengonfirmasi logout.'
+        : null;
     notifyListeners();
-
-    if (token == null || token.isEmpty) return;
-
-    try {
-      await ApiService.logout(token);
-      _errorMessage = null;
-    } catch (e) {
-      _errorMessage =
-          'Sesi lokal sudah dihapus, tetapi server belum mengonfirmasi logout.';
-      notifyListeners();
-    }
   }
 
   void clearError() {

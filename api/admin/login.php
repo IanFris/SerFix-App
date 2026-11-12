@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $error = 'Email atau password admin salah.';
         } catch (PDOException $exception) {
-            error_log('AutoLog admin login: ' . $exception->getMessage());
+            error_log('SerFix admin login: ' . $exception->getMessage());
             $error = 'Tabel admin belum siap. Jalankan `php api/admin/create_admin.php` dari folder aplikasi.';
         }
     }
@@ -47,12 +47,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Login Admin | AutoLog</title>
+  <title>Login Admin | SerFix</title>
   <link rel="stylesheet" href="admin.css">
 </head>
 <body class="login-page">
   <main class="login-card">
-    <a class="brand" href="login.php"><span class="brand-mark">A</span> AutoLog <small>ADMIN</small></a>
+    <a class="brand" href="login.php"><span class="brand-mark">S</span> SerFix <small>ADMIN</small></a>
     <h1>Masuk ke dashboard</h1>
     <p class="muted">Gunakan akun admin yang dibuat melalui terminal.</p>
     <?php if ($error !== ''): ?>

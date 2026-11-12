@@ -62,7 +62,8 @@ try {
         "user" => [
             "id"    => $userId,
             "name"  => $name,
-            "email" => $email
+            "email" => $email,
+            "role" => "customer"
         ],
         "token" => $token
     ], 201);

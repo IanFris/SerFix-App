@@ -10,10 +10,10 @@ function admin_start_session(): void
     }
 
     ini_set('session.use_strict_mode', '1');
-    session_name('autolog_admin');
+    session_name('serfix_admin');
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/autolog/api/admin',
+        'path' => '/serfix/api/admin',
         'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
         'httponly' => true,
         'samesite' => 'Strict',

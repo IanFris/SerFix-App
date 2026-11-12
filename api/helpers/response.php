@@ -1,6 +1,6 @@
 <?php
 // ====================================================================
-// AutoLog Backend - CORS & Standard Response Helper
+// SerFix Backend - CORS & Standard Response Helper
 // ====================================================================
 
 // Set CORS headers
@@ -42,4 +42,3 @@ function getRequestData(): array {
     return $_POST;
 }
 ?>
-

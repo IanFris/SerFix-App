@@ -47,7 +47,7 @@ try {
         ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
     ]);
 
-    fwrite(STDOUT, "Akun admin berhasil disimpan. Buka /autolog/api/admin/ untuk login.\n");
+    fwrite(STDOUT, "Akun admin berhasil disimpan. Buka /serfix/api/admin/ untuk login.\n");
 } catch (PDOException $exception) {
     fwrite(STDERR, "Gagal menyiapkan akun admin: " . $exception->getMessage() . "\n");
     exit(1);

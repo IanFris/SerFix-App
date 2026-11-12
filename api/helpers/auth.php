@@ -34,18 +34,35 @@ function requireAuthenticatedUser(PDO $db): int {
     }
 
     $stmt = $db->prepare(
-        "SELECT user_id FROM user_sessions
-         WHERE token_hash = :token_hash AND expires_at > NOW()
+        "SELECT u.id, u.name, u.email, u.role
+         FROM user_sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = :token_hash AND s.expires_at > NOW()
          LIMIT 1"
     );
     $stmt->execute([':token_hash' => hash('sha256', $token)]);
-    $userId = $stmt->fetchColumn();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($userId === false) {
+    if ($user === false) {
         sendResponse("error", "Sesi tidak valid atau telah kedaluwarsa. Silakan login kembali.", null, 401);
     }
 
-    return (int)$userId;
+    $GLOBALS['authenticated_user'] = [
+        'id' => (int)$user['id'],
+        'name' => $user['name'],
+        'email' => $user['email'],
+        'role' => $user['role'],
+    ];
+    return (int)$user['id'];
+}
+
+function requireUserRole(PDO $db, array $roles): array {
+    requireAuthenticatedUser($db);
+    $user = $GLOBALS['authenticated_user'] ?? null;
+    if (!is_array($user) || !in_array($user['role'], $roles, true)) {
+        sendResponse("error", "Anda tidak memiliki izin untuk melakukan tindakan ini.", null, 403);
+    }
+
+    return $user;
 }
 
 function requireVehicleOwnership(PDO $db, int $userId, int $vehicleId): void {

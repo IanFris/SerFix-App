@@ -1,32 +1,31 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
+
 import '../core/constants/api_constants.dart';
+import '../models/serfix_models.dart';
 import '../models/user.dart';
-import '../models/vehicle.dart';
-import '../models/service_type.dart';
-import '../models/service_log.dart';
-import '../models/component_reminder.dart';
-import '../models/expense_summary.dart';
 import 'session_service.dart';
 
 class ApiException implements Exception {
+  const ApiException(this.message, [this.statusCode]);
+
   final String message;
   final int? statusCode;
-
-  ApiException(this.message, [this.statusCode]);
 
   @override
   String toString() => message;
 }
 
 class ApiService {
-  static Future<Map<String, String>> _authenticatedHeaders({
+  static Future<Map<String, String>> _headers({
     bool jsonContentType = false,
+    String? tokenOverride,
   }) async {
-    final token = (await SessionService.getUser())?.token;
+    final token = tokenOverride ?? (await SessionService.getUser())?.token;
     if (token == null || token.isEmpty) {
-      throw ApiException('Sesi login tidak valid. Silakan login kembali.', 401);
+      throw const ApiException(
+          'Sesi login tidak valid. Silakan login kembali.', 401);
     }
     return {
       if (jsonContentType) 'Content-Type': 'application/json',
@@ -34,346 +33,275 @@ class ApiService {
     };
   }
 
-  // Helper internal untuk menangani respon
-  static Map<String, dynamic> _handleResponse(http.Response response) {
+  static Map<String, dynamic> _response(http.Response response) {
     try {
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        if (data['status'] == 'success') {
-          return data;
-        }
-        throw ApiException(data['message'] ?? 'Terjadi kesalahan sistem');
-      } else {
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map<String, dynamic>) {
+        throw const ApiException('Format respon dari server tidak valid.');
+      }
+      if (response.statusCode < 200 ||
+          response.statusCode >= 300 ||
+          decoded['status'] != 'success') {
         throw ApiException(
-          data['message'] ??
-              'Gagal menghubungi server (HTTP ${response.statusCode})',
+          decoded['message'] as String? ??
+              'Gagal menghubungi server (HTTP ${response.statusCode}).',
           response.statusCode,
         );
       }
+      return decoded;
     } on FormatException {
-      throw ApiException('Format respon dari server tidak valid.');
+      throw const ApiException('Format respon dari server tidak valid.');
     }
   }
 
-  // --- 1. AUTH ---
-  static Future<User> login(String email, String password) async {
-    try {
-      final res = await http.post(
-        Uri.parse(ApiConstants.login),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'email': email, 'password': password}),
-      );
+  static Future<dynamic> _getData(String url) async {
+    final response = await http.get(
+      Uri.parse(url),
+      headers: await _headers(),
+    );
+    return _response(response)['data'];
+  }
 
-      final json = _handleResponse(res);
-      final responseData = json['data'] as Map<String, dynamic>;
-      final userData = Map<String, dynamic>.from(
-        responseData['user'] as Map<String, dynamic>,
-      )..['token'] = responseData['token'];
-      return User.fromJson(userData);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal terhubung ke server Laragon: $e');
+  static Future<dynamic> _postData(
+      String url, Map<String, dynamic> body) async {
+    final response = await http.post(
+      Uri.parse(url),
+      headers: await _headers(jsonContentType: true),
+      body: jsonEncode(body),
+    );
+    return _response(response)['data'];
+  }
+
+  static List<Map<String, dynamic>> _mapList(dynamic value) {
+    if (value is! List) {
+      throw const ApiException('Format daftar dari server tidak valid.');
     }
+    return value.whereType<Map>().map(Map<String, dynamic>.from).toList();
+  }
+
+  static Future<User> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse(ApiConstants.login),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email, 'password': password}),
+    );
+    final data = _response(response)['data'] as Map<String, dynamic>;
+    final userData = Map<String, dynamic>.from(
+      data['user'] as Map<String, dynamic>,
+    )..['token'] = data['token'];
+    return User.fromJson(userData);
   }
 
   static Future<User> register(
-      String name, String email, String password) async {
-    try {
-      final res = await http.post(
-        Uri.parse(ApiConstants.register),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'name': name, 'email': email, 'password': password}),
-      );
-
-      final json = _handleResponse(res);
-      final responseData = json['data'] as Map<String, dynamic>;
-      final userData = Map<String, dynamic>.from(
-        responseData['user'] as Map<String, dynamic>,
-      )..['token'] = responseData['token'];
-      return User.fromJson(userData);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal terhubung ke server Laragon: $e');
-    }
+    String name,
+    String email,
+    String password,
+  ) async {
+    final response = await http.post(
+      Uri.parse(ApiConstants.register),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'name': name, 'email': email, 'password': password}),
+    );
+    final data = _response(response)['data'] as Map<String, dynamic>;
+    final userData = Map<String, dynamic>.from(
+      data['user'] as Map<String, dynamic>,
+    )..['token'] = data['token'];
+    return User.fromJson(userData);
   }
 
   static Future<void> logout(String token) async {
-    final res = await http.post(
-      Uri.parse(ApiConstants.logout),
-      headers: {'Authorization': 'Bearer $token'},
-    ).timeout(const Duration(seconds: 5));
-    _handleResponse(res);
+    final response = await http
+        .post(
+          Uri.parse(ApiConstants.logout),
+          headers: await _headers(tokenOverride: token),
+        )
+        .timeout(const Duration(seconds: 5));
+    _response(response);
   }
 
-  // --- 2. VEHICLES ---
-  static Future<List<Vehicle>> getVehicles(int userId) async {
-    try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.vehicles}?user_id=$userId'),
-        headers: await _authenticatedHeaders(),
-      );
-
-      final json = _handleResponse(res);
-      final list = json['data'] as List<dynamic>;
-      return list
-          .map((item) => Vehicle.fromJson(item as Map<String, dynamic>))
+  static Future<List<ServiceCategory>> getServiceCatalog() async =>
+      _mapList(await _getData(ApiConstants.serviceCatalog))
+          .map(ServiceCategory.fromJson)
           .toList();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal mengambil daftar kendaraan: $e');
-    }
-  }
 
-  static Future<Vehicle> createVehicle({
-    required int userId,
-    required String type,
-    required String brandModel,
-    required String licensePlate,
-    required int currentOdometer,
-  }) async {
-    try {
-      final res = await http.post(
-        Uri.parse(ApiConstants.vehicles),
-        headers: await _authenticatedHeaders(jsonContentType: true),
-        body: jsonEncode({
-          'user_id': userId,
-          'type': type,
-          'brand_model': brandModel,
-          'license_plate': licensePlate,
-          'current_odometer': currentOdometer,
-        }),
-      );
-
-      final json = _handleResponse(res);
-      return Vehicle.fromJson(json['data'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal menambahkan kendaraan: $e');
-    }
-  }
-
-  static Future<void> updateOdometer(int vehicleId, int newOdometer) async {
-    try {
-      final res = await http.put(
-        Uri.parse(ApiConstants.vehicles),
-        headers: await _authenticatedHeaders(jsonContentType: true),
-        body: jsonEncode({
-          'id': vehicleId,
-          'current_odometer': newOdometer,
-        }),
-      );
-      _handleResponse(res);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal memperbarui odometer: $e');
-    }
-  }
-
-  static Future<void> updateVehicle({
-    required int vehicleId,
-    String? type,
-    String? brandModel,
-    String? licensePlate,
-    int? currentOdometer,
-  }) async {
-    try {
-      final res = await http.put(
-        Uri.parse(ApiConstants.vehicles),
-        headers: await _authenticatedHeaders(jsonContentType: true),
-        body: jsonEncode({
-          'id': vehicleId,
-          if (type != null) 'type': type,
-          if (brandModel != null) 'brand_model': brandModel,
-          if (licensePlate != null) 'license_plate': licensePlate,
-          if (currentOdometer != null) 'current_odometer': currentOdometer,
-        }),
-      );
-      _handleResponse(res);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal memperbarui kendaraan: $e');
-    }
-  }
-
-  static Future<void> deleteVehicle(int vehicleId) async {
-    try {
-      final res = await http.delete(
-        Uri.parse(ApiConstants.vehicles),
-        headers: await _authenticatedHeaders(jsonContentType: true),
-        body: jsonEncode({'id': vehicleId}),
-      );
-      _handleResponse(res);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal menghapus kendaraan: $e');
-    }
-  }
-
-  // --- 3. SERVICE TYPES ---
-  static Future<List<ServiceType>> getServiceTypes() async {
-    try {
-      final res = await http.get(Uri.parse(ApiConstants.serviceTypes));
-      final json = _handleResponse(res);
-      final list = json['data'] as List<dynamic>;
-      return list
-          .map((item) => ServiceType.fromJson(item as Map<String, dynamic>))
+  static Future<List<SerfixRequest>> getServiceRequests() async =>
+      _mapList(await _getData(ApiConstants.serviceRequests))
+          .map(SerfixRequest.fromJson)
           .toList();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal mengambil katalog jenis servis: $e');
+
+  static Future<Map<String, dynamic>> getDashboardSummary() async {
+    final data = await _getData(ApiConstants.summary);
+    if (data is! Map) {
+      throw const ApiException('Format ringkasan SerFix tidak valid.');
     }
+    return Map<String, dynamic>.from(data);
   }
 
-  // --- 4. SERVICE LOGS ---
-  static Future<List<ServiceLog>> getServiceLogs(int vehicleId) async {
-    try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.serviceLogs}?vehicle_id=$vehicleId'),
-        headers: await _authenticatedHeaders(),
-      );
-      final json = _handleResponse(res);
-      final list = json['data'] as List<dynamic>;
-      return list
-          .map((item) => ServiceLog.fromJson(item as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal mengambil riwayat servis: $e');
-    }
-  }
-
-  static Future<ServiceLog> createServiceLog({
-    required int vehicleId,
-    required int serviceTypeId,
-    required String serviceDate,
-    required int odometerKm,
-    required double cost,
-    String? workshopName,
-    String? notes,
-    XFile? receiptPhoto,
+  static Future<List<SerfixTechnician>> getTechnicians({
+    String? area,
+    int? categoryId,
+    DateTime? requestedAt,
+    int? durationMinutes,
   }) async {
-    try {
-      final uri = Uri.parse(ApiConstants.serviceLogs);
-      final request = http.MultipartRequest('POST', uri);
-      request.headers.addAll(await _authenticatedHeaders());
-
-      request.fields['vehicle_id'] = vehicleId.toString();
-      request.fields['service_type_id'] = serviceTypeId.toString();
-      request.fields['service_date'] = serviceDate;
-      request.fields['odometer_km'] = odometerKm.toString();
-      request.fields['cost'] = cost.toString();
-      if (workshopName != null) request.fields['workshop_name'] = workshopName;
-      if (notes != null) request.fields['notes'] = notes;
-
-      if (receiptPhoto != null) {
-        final bytes = await receiptPhoto.readAsBytes();
-        final multipartFile = http.MultipartFile.fromBytes(
-          'receipt_photo',
-          bytes,
-          filename: receiptPhoto.name,
-        );
-        request.files.add(multipartFile);
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      final json = _handleResponse(response);
-      return ServiceLog.fromJson(json['data'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal menyimpan catatan servis: $e');
-    }
+    final uri = Uri.parse(ApiConstants.technicians).replace(queryParameters: {
+      if (area != null) 'area': area,
+      if (categoryId != null) 'category_id': '$categoryId',
+      if (requestedAt != null) 'requested_at': requestedAt.toIso8601String(),
+      if (durationMinutes != null) 'duration_minutes': '$durationMinutes',
+    });
+    return _mapList(await _getData(uri.toString()))
+        .map(SerfixTechnician.fromJson)
+        .toList();
   }
 
-  static Future<ServiceLog> updateServiceLog({
-    required int serviceLogId,
-    required int vehicleId,
-    required int serviceTypeId,
-    required String serviceDate,
-    required int odometerKm,
-    required double cost,
-    String? workshopName,
-    String? notes,
-    XFile? receiptPhoto,
-  }) async {
-    try {
-      final uri = Uri.parse(ApiConstants.serviceLogs);
-      final request = http.MultipartRequest('PUT', uri);
-      request.headers.addAll(await _authenticatedHeaders());
+  static Future<List<Map<String, dynamic>>> getStaff() async =>
+      _mapList(await _getData(ApiConstants.staff));
 
-      request.fields['id'] = serviceLogId.toString();
-      request.fields['vehicle_id'] = vehicleId.toString();
-      request.fields['service_type_id'] = serviceTypeId.toString();
-      request.fields['service_date'] = serviceDate;
-      request.fields['odometer_km'] = odometerKm.toString();
-      request.fields['cost'] = cost.toString();
-      if (workshopName != null) request.fields['workshop_name'] = workshopName;
-      if (notes != null) request.fields['notes'] = notes;
-
-      if (receiptPhoto != null) {
-        final bytes = await receiptPhoto.readAsBytes();
-        request.files.add(http.MultipartFile.fromBytes(
-          'receipt_photo',
-          bytes,
-          filename: receiptPhoto.name,
-        ));
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      final json = _handleResponse(response);
-      return ServiceLog.fromJson(json['data'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal memperbarui catatan servis: $e');
-    }
-  }
-
-  static Future<void> deleteServiceLog(int serviceLogId) async {
-    try {
-      final res = await http.delete(
-        Uri.parse(ApiConstants.serviceLogs),
-        headers: await _authenticatedHeaders(jsonContentType: true),
-        body: jsonEncode({'id': serviceLogId}),
-      );
-      _handleResponse(res);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal menghapus catatan servis: $e');
-    }
-  }
-
-  // --- 5. DASHBOARD REMINDERS (Status Hijau, Kuning, Merah) ---
-  static Future<List<ComponentReminder>> getReminders(int vehicleId) async {
-    try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.reminders}?vehicle_id=$vehicleId'),
-        headers: await _authenticatedHeaders(),
-      );
-      final json = _handleResponse(res);
-      final list = json['data']['reminders'] as List<dynamic>;
-      return list
-          .map((item) =>
-              ComponentReminder.fromJson(item as Map<String, dynamic>))
+  static Future<List<SerfixPart>> getParts() async =>
+      _mapList(await _getData(ApiConstants.parts))
+          .map(SerfixPart.fromJson)
           .toList();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal memuat status pengingat: $e');
-    }
+
+  static Future<List<Map<String, dynamic>>> getWarranties() async =>
+      _mapList(await _getData(ApiConstants.warranties));
+
+  static Future<List<Map<String, dynamic>>> getPayments() async =>
+      _mapList(await _getData(ApiConstants.payments));
+
+  static Future<void> createServiceRequest({
+    required int categoryId,
+    required String deviceName,
+    required String issue,
+    required String address,
+    required String area,
+    required DateTime scheduledAt,
+  }) async {
+    await _postData(ApiConstants.serviceRequests, {
+      'action': 'create',
+      'category_id': categoryId,
+      'device_name': deviceName,
+      'issue_description': issue,
+      'service_address': address,
+      'service_area': area,
+      'requested_at': scheduledAt.toIso8601String(),
+    });
   }
 
-  // --- 6. DASHBOARD EXPENSES ---
-  static Future<ExpenseSummary> getExpenses(int vehicleId) async {
-    try {
-      final res = await http.get(
-        Uri.parse('${ApiConstants.expenses}?vehicle_id=$vehicleId'),
-        headers: await _authenticatedHeaders(),
-      );
-      final json = _handleResponse(res);
-      return ExpenseSummary.fromJson(json['data'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Gagal memuat rekapitulasi biaya: $e');
-    }
+  static Future<void> assignServiceRequest({
+    required int requestId,
+    required int technicianId,
+    required DateTime scheduledAt,
+  }) async {
+    await _postData(ApiConstants.serviceRequests, {
+      'action': 'assign',
+      'request_id': requestId,
+      'technician_id': technicianId,
+      'scheduled_at': scheduledAt.toIso8601String(),
+    });
+  }
+
+  static Future<void> updateServiceRequest(int requestId, String action) async {
+    await _postData(ApiConstants.serviceRequests, {
+      'action': action,
+      'request_id': requestId,
+    });
+  }
+
+  static Future<void> updateWorkOrder(
+    int requestId,
+    String action, {
+    String diagnosis = '',
+    String description = '',
+    String notes = '',
+    List<Map<String, int>> parts = const [],
+  }) async {
+    await _postData(ApiConstants.workOrders, {
+      'request_id': requestId,
+      'action': action,
+      'diagnosis': diagnosis,
+      'work_description': description,
+      'technician_notes': notes,
+      'parts': parts,
+    });
+  }
+
+  static Future<void> createPayment(
+    int requestId,
+    String method,
+    String reference,
+  ) async {
+    await _postData(ApiConstants.payments, {
+      'action': 'create',
+      'request_id': requestId,
+      'method': method,
+      'reference': reference,
+    });
+  }
+
+  static Future<void> verifyPayment(int paymentId, String decision) async {
+    await _postData(ApiConstants.payments, {
+      'action': 'verify',
+      'payment_id': paymentId,
+      'decision': decision,
+    });
+  }
+
+  static Future<void> claimWarranty(int warrantyId, String description) async {
+    await _postData(ApiConstants.warranties, {
+      'action': 'claim',
+      'warranty_id': warrantyId,
+      'description': description,
+    });
+  }
+
+  static Future<void> decideWarrantyClaim(
+    int claimId,
+    String decision,
+    String notes,
+  ) async {
+    await _postData(ApiConstants.warranties, {
+      'action': 'decide',
+      'claim_id': claimId,
+      'decision': decision,
+      'decision_notes': notes,
+    });
+  }
+
+  static Future<void> createStaff({
+    required String name,
+    required String email,
+    required String password,
+    required String role,
+    String area = '',
+    String phone = '',
+    List<int> skills = const [],
+  }) async {
+    await _postData(ApiConstants.staff, {
+      'name': name,
+      'email': email,
+      'password': password,
+      'role': role,
+      'service_area': area,
+      'phone': phone,
+      'skill_ids': skills,
+    });
+  }
+
+  static Future<void> savePart({
+    int? id,
+    required String sku,
+    required String name,
+    required int stock,
+    required double unitPrice,
+    String description = '',
+  }) async {
+    await _postData(ApiConstants.parts, {
+      if (id != null) 'id': id,
+      'sku': sku,
+      'name': name,
+      'stock_quantity': stock,
+      'unit_price': unitPrice,
+      'description': description,
+    });
   }
 }
