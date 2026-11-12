@@ -8,6 +8,7 @@ import 'package:autolog/models/vehicle.dart';
 import 'package:autolog/providers/auth_provider.dart';
 import 'package:autolog/providers/service_provider.dart';
 import 'package:autolog/providers/settings_provider.dart';
+import 'package:autolog/providers/serfix_provider.dart';
 import 'package:autolog/providers/vehicle_provider.dart';
 import 'package:autolog/models/user.dart';
 import 'package:autolog/services/session_service.dart';
@@ -16,6 +17,29 @@ import 'package:autolog/screens/service_logs/add_service_log_screen.dart';
 import 'package:autolog/utils/service_log_csv_exporter.dart';
 
 void main() {
+  test('SerFix bookings expose schedule conflicts and retain service details',
+      () {
+    final serfix = SerfixProvider();
+    final tomorrow = DateTime.now().add(const Duration(days: 1));
+    final conflict = serfix.requests.first;
+    final openSlot = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 13);
+
+    expect(serfix.hasTechnicianConflict(conflict), isTrue);
+    expect(serfix.isSlotAvailable(conflict.scheduledAt), isFalse);
+    expect(serfix.isSlotAvailable(openSlot), isTrue);
+
+    serfix.createRequest(
+      customerName: 'Nadia Putri',
+      service: 'Servis AC',
+      device: 'AC 1 PK tidak dingin',
+      address: 'Jl. Melati, Bandung',
+      scheduledAt: openSlot,
+    );
+
+    expect(serfix.requests.first.device, 'AC 1 PK tidak dingin');
+    expect(serfix.requests.first.status, ServiceRequestStatus.requested);
+  });
+
   test('CSV export escapes special characters and includes all service fields',
       () {
     final csv = ServiceLogCsvExporter.createCsv([
@@ -42,19 +66,19 @@ void main() {
     expect(csv, contains('"275000.00"'));
   });
 
-  testWidgets('AutoLog app smoke test', (WidgetTester tester) async {
+  testWidgets('SerFix app smoke test', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
 
-    await tester.pumpWidget(const AutoLogApp());
+    await tester.pumpWidget(const SerfixApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('AutoLog'), findsWidgets);
+    expect(find.text('SerFix'), findsWidgets);
   });
 
   testWidgets('guest can enter without registering',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const AutoLogApp());
+    await tester.pumpWidget(const SerfixApp());
     await tester.pumpAndSettle();
 
     final guestButton = find.text('Lanjutkan sebagai Tamu');
@@ -62,14 +86,14 @@ void main() {
     await tester.tap(guestButton);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Mode Tamu: data tersimpan'), findsOneWidget);
+    expect(find.textContaining('Tampilan demonstrasi'), findsOneWidget);
     expect((await SessionService.getUser())?.isGuest, isTrue);
 
-    await tester.tap(find.text('Pengaturan').last);
+    await tester.tap(find.byTooltip('Ganti peran demo'));
     await tester.pumpAndSettle();
-    expect(find.text('Tema aplikasi'), findsOneWidget);
-    expect(find.byType(SegmentedButton<ThemeMode>), findsOneWidget);
-    expect(find.text('Server API'), findsOneWidget);
+    await tester.tap(find.text('Admin').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('peran Admin'), findsOneWidget);
   });
 
   test('theme and API URL settings persist locally', () async {

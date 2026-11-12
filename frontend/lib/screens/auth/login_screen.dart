@@ -182,7 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 14),
                 const Text(
-                  'AutoLog',
+                  'SerFix',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Color(0xFF0F8B80),
@@ -193,7 +193,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 22),
                 const Text(
-                  'Rawat kendaraan,',
+                  'Servis rumah,',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 27,
@@ -213,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  'Catat perjalanan servis dan pantau kondisi kendaraanmu di satu tempat.',
+                  'Ajukan servis AC dan elektronik, lalu pantau teknisi, biaya, dan garansi dalam satu aplikasi.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,

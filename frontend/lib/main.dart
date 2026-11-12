@@ -6,6 +6,7 @@ import 'providers/auth_provider.dart';
 import 'providers/vehicle_provider.dart';
 import 'providers/service_provider.dart';
 import 'providers/settings_provider.dart';
+import 'providers/serfix_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_navigation_screen.dart';
 
@@ -19,11 +20,11 @@ void main() async {
     ),
   );
 
-  runApp(const AutoLogApp());
+  runApp(const SerfixApp());
 }
 
-class AutoLogApp extends StatelessWidget {
-  const AutoLogApp({super.key});
+class SerfixApp extends StatelessWidget {
+  const SerfixApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +35,7 @@ class AutoLogApp extends StatelessWidget {
             create: (_) => VehicleProvider()),
         ChangeNotifierProvider<ServiceProvider>(
             create: (_) => ServiceProvider()),
+        ChangeNotifierProvider<SerfixProvider>(create: (_) => SerfixProvider()),
         ChangeNotifierProvider<SettingsProvider>(
             create: (_) => SettingsProvider()),
       ],
@@ -42,7 +44,7 @@ class AutoLogApp extends StatelessWidget {
           return Consumer<SettingsProvider>(
             builder: (context, settings, _) {
               return MaterialApp(
-                title: 'AutoLog',
+                title: 'SerFix',
                 debugShowCheckedModeBanner: false,
                 theme: AppTheme.lightTheme,
                 darkTheme: AppTheme.darkTheme,

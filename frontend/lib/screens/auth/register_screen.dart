@@ -63,7 +63,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'Daftar AutoLog',
+                  'Daftar SerFix',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -71,7 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Mulai catat dan pantau kesehatan kendaraan Anda secara mudah.',
+                  'Ajukan layanan servis rumah dan pantau prosesnya dengan transparan.',
                   style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 28),
@@ -85,7 +85,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.person_outline),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Nama wajib diisi';
+                    if (val == null || val.trim().isEmpty)
+                      return 'Nama wajib diisi';
                     return null;
                   },
                 ),
@@ -101,7 +102,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: Icon(Icons.email_outlined),
                   ),
                   validator: (val) {
-                    if (val == null || val.trim().isEmpty) return 'Email wajib diisi';
+                    if (val == null || val.trim().isEmpty)
+                      return 'Email wajib diisi';
                     if (!val.contains('@')) return 'Format email tidak valid';
                     return null;
                   },
@@ -117,14 +119,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                       ),
                       onPressed: () =>
                           setState(() => _obscurePassword = !_obscurePassword),
                     ),
                   ),
                   validator: (val) {
-                    if (val == null || val.isEmpty) return 'Password wajib diisi';
+                    if (val == null || val.isEmpty)
+                      return 'Password wajib diisi';
                     if (val.length < 6) return 'Password minimal 6 karakter';
                     return null;
                   },
@@ -143,17 +148,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Daftar Sekarang', style: TextStyle(fontSize: 16)),
+                      : const Text('Daftar Sekarang',
+                          style: TextStyle(fontSize: 16)),
                 ),
                 const SizedBox(height: 16),
 
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Sudah punya akun? ', style: TextStyle(fontSize: 13)),
+                    const Text('Sudah punya akun? ',
+                        style: TextStyle(fontSize: 13)),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Masuk di sini', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text('Masuk di sini',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -165,4 +173,3 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 }
-
