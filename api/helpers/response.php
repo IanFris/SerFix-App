@@ -41,4 +41,14 @@ function getRequestData(): array {
     }
     return $_POST;
 }
+
+set_exception_handler(function (Throwable $exception): void {
+    error_log($exception->getMessage());
+    http_response_code(500);
+    echo json_encode([
+        "status" => "error",
+        "message" => "Terjadi kesalahan pada server.",
+        "data" => null
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+});
 ?>

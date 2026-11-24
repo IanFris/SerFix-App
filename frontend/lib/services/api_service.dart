@@ -35,16 +35,23 @@ class ApiService {
 
   static Map<String, dynamic> _response(http.Response response) {
     try {
-      final decoded = jsonDecode(response.body);
+      final body = response.body.trim();
+      if (body.isEmpty) {
+        throw const ApiException(
+            'Server tidak mengirimkan data respons.');
+      }
+      final decoded = jsonDecode(body);
       if (decoded is! Map<String, dynamic>) {
         throw const ApiException('Format respon dari server tidak valid.');
       }
       if (response.statusCode < 200 ||
           response.statusCode >= 300 ||
           decoded['status'] != 'success') {
+        final message = decoded['message'];
         throw ApiException(
-          decoded['message'] as String? ??
-              'Gagal menghubungi server (HTTP ${response.statusCode}).',
+          message is String && message.isNotEmpty
+              ? message
+              : 'Gagal menghubungi server (HTTP ${response.statusCode}).',
           response.statusCode,
         );
       }
