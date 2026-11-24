@@ -32,6 +32,20 @@ function request_add_event(PDO $db, int $requestId, ?int $actorId, string $type,
     ]);
 }
 
+function request_add_notification(PDO $db, int $userId, int $requestId, string $title, string $message): void
+{
+    $stmt = $db->prepare(
+        'INSERT INTO service_notifications (user_id, service_request_id, title, message)
+         VALUES (:user_id, :request_id, :title, :message)'
+    );
+    $stmt->execute([
+        ':user_id' => $userId,
+        ':request_id' => $requestId,
+        ':title' => mb_substr($title, 0, 160),
+        ':message' => mb_substr($message, 0, 500),
+    ]);
+}
+
 function request_list_query(): string
 {
     return 'SELECT sr.id, sr.customer_id, customer.name AS customer_name,
@@ -270,6 +284,13 @@ if ($action === 'assign') {
             ':id' => $requestId,
         ]);
         request_add_event($db, $requestId, $user['id'], 'assigned', 'Teknisi ditugaskan dan jadwal dikonfirmasi.');
+        request_add_notification(
+            $db,
+            (int)$request['customer_id'],
+            $requestId,
+            'Teknisi ditugaskan',
+            'Jadwal servis Anda telah dikonfirmasi. Pantau teknisi dari halaman layanan.'
+        );
         $db->commit();
         sendResponse('success', 'Teknisi berhasil ditugaskan.', null);
     } catch (Throwable $exception) {

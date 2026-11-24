@@ -34,4 +34,5 @@ class ApiConstants {
   static String get payments => '$baseUrl/payments/index.php';
   static String get warranties => '$baseUrl/warranties/index.php';
   static String get summary => '$baseUrl/dashboard/index.php';
+  static String get enhancements => '$baseUrl/enhancements/index.php';
 }

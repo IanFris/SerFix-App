@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/user.dart';
@@ -30,7 +33,7 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
     final provider = context.watch<SerfixProvider>();
     final user = context.watch<AuthProvider>().currentUser;
     final role = provider.role;
-    final labels = ['Beranda', 'Layanan', 'Garansi', 'Akun'];
+    final labels = ['Beranda', 'Layanan', 'Pesan', 'Garansi', 'Akun'];
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -42,6 +45,15 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Notifikasi',
+            onPressed: () => _openNotifications(context),
+            icon: Badge(
+              isLabelVisible: provider.notifications
+                  .any((item) => item['is_read'] == 0 || item['is_read'] == false),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Chip(
@@ -74,6 +86,7 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
                     user: user,
                     onNavigate: (tab) => setState(() => _tab = tab)),
                 const _RequestList(),
+                const _MessageList(),
                 const _WarrantyList(),
                 _AccountPage(user: user),
               ],
@@ -81,7 +94,7 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           ),
         ],
       ),
-      floatingActionButton: role == SerfixRole.customer && _tab < 2
+      floatingActionButton: role == SerfixRole.customer && (_tab == 0 || _tab == 1)
           ? FloatingActionButton.extended(
               onPressed: () => _openRequestForm(context),
               icon: const Icon(Icons.add),
@@ -101,6 +114,11 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'Layanan',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Pesan',
           ),
           NavigationDestination(
             icon: Icon(Icons.verified_user_outlined),
@@ -123,6 +141,60 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       builder: (_) => const _RequestFormSheet(),
+    );
+  }
+
+  Future<void> _openNotifications(BuildContext context) async {
+    final provider = context.read<SerfixProvider>();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('Notifikasi',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w800)),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await provider.readNotifications();
+                        setSheetState(() {});
+                      },
+                      child: const Text('Tandai dibaca'),
+                    ),
+                  ],
+                ),
+                if (provider.notifications.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: Text('Belum ada notifikasi.')),
+                  )
+                else
+                  ...provider.notifications.take(20).map((item) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          item['is_read'] == 1
+                              ? Icons.notifications_none
+                              : Icons.notifications_active_outlined,
+                          color: const Color(0xFF0F8B80),
+                        ),
+                        title: Text(item['title']?.toString() ?? ''),
+                        subtitle: Text(item['message']?.toString() ?? ''),
+                      )),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -249,6 +321,163 @@ class _SummaryGrid extends StatelessWidget {
                 icon: item.$3,
               ))
           .toList(),
+    );
+  }
+}
+
+class _MessageList extends StatelessWidget {
+  const _MessageList();
+
+  @override
+  Widget build(BuildContext context) {
+    final requests = context.watch<SerfixProvider>().requests;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
+      children: [
+        Text('Pesan layanan',
+            style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 4),
+        const Text('Chat langsung dengan pelanggan atau teknisi.'),
+        const SizedBox(height: 14),
+        if (requests.isEmpty)
+          const _InfoTile(
+            icon: Icons.chat_bubble_outline,
+            title: 'Belum ada percakapan',
+            subtitle: 'Pesan akan tersedia setelah ada pengajuan servis.',
+          )
+        else
+          ...requests.map((request) => Card(
+                child: ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.chat_outlined),
+                  ),
+                  title: Text(request.service),
+                  subtitle: Text(request.technicianName ??
+                      request.customerName),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openChat(context, request),
+                ),
+              )),
+      ],
+    );
+  }
+
+  static Future<void> _openChat(
+      BuildContext context, SerfixRequest request) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _ChatSheet(request: request),
+    );
+  }
+}
+
+class _ChatSheet extends StatefulWidget {
+  const _ChatSheet({required this.request});
+  final SerfixRequest request;
+
+  @override
+  State<_ChatSheet> createState() => _ChatSheetState();
+}
+
+class _ChatSheetState extends State<_ChatSheet> {
+  final _messageController = TextEditingController();
+  List<Map<String, dynamic>> _messages = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final messages =
+          await context.read<SerfixProvider>().getMessages(widget.request.id);
+      if (mounted) setState(() => _messages = messages);
+    } catch (_) {
+      // Server errors are surfaced only after an attempted send/load action.
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _send() async {
+    final text = _messageController.text.trim();
+    if (text.isEmpty) return;
+    try {
+      await context.read<SerfixProvider>().sendMessage(widget.request.id, text);
+      _messageController.clear();
+      await _load();
+    } catch (error) {
+      if (mounted) _message(context, error.toString(), error: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
+              child: Text('Chat · ${widget.request.service}',
+                  style: Theme.of(context).textTheme.titleMedium),
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _messages.isEmpty
+                      ? const Center(child: Text('Belum ada pesan.'))
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(18),
+                          itemCount: _messages.length,
+                          itemBuilder: (_, index) {
+                            final item = _messages[index];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                  item['sender_name']?.toString() ?? 'Pengguna',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700)),
+                              subtitle: Text(item['message']?.toString() ?? ''),
+                            );
+                          },
+                        ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      decoration:
+                          const InputDecoration(hintText: 'Tulis pesan...'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: _send,
+                    icon: const Icon(Icons.send),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -391,22 +620,7 @@ class _RequestCard extends StatelessWidget {
   }
 
   bool _hasActions(SerfixProvider provider, SerfixRequest request) {
-    final role = provider.role;
-    return (role == SerfixRole.admin &&
-            request.status == ServiceRequestStatus.requested) ||
-        (role == SerfixRole.customer &&
-            ((request.status == ServiceRequestStatus.assigned ||
-                        request.status ==
-                            ServiceRequestStatus.waitingApproval) &&
-                    !request.estimateApproved ||
-                request.status == ServiceRequestStatus.requested ||
-                request.status == ServiceRequestStatus.assigned ||
-                request.status == ServiceRequestStatus.waitingApproval ||
-                request.status == ServiceRequestStatus.completed &&
-                    request.paymentStatus != 'paid')) ||
-        (role == SerfixRole.technician &&
-            (request.status == ServiceRequestStatus.assigned ||
-                request.status == ServiceRequestStatus.inProgress));
+    return true;
   }
 
   List<Widget> _buildActions(
@@ -415,6 +629,16 @@ class _RequestCard extends StatelessWidget {
     SerfixRole role,
   ) {
     final actions = <Widget>[];
+    actions.add(OutlinedButton.icon(
+      onPressed: () => _openChat(context, provider, request),
+      icon: const Icon(Icons.chat_outlined, size: 17),
+      label: const Text('Chat'),
+    ));
+    actions.add(OutlinedButton.icon(
+      onPressed: () => _openAttachments(context, provider, request),
+      icon: const Icon(Icons.attach_file, size: 17),
+      label: const Text('Lampiran'),
+    ));
     if (role == SerfixRole.admin &&
         request.status == ServiceRequestStatus.requested) {
       actions.add(OutlinedButton.icon(
@@ -424,6 +648,22 @@ class _RequestCard extends StatelessWidget {
       ));
     }
     if (role == SerfixRole.customer) {
+      if (request.status == ServiceRequestStatus.requested ||
+          request.status == ServiceRequestStatus.assigned) {
+        actions.add(OutlinedButton.icon(
+          onPressed: () => _reschedule(context, provider, request),
+          icon: const Icon(Icons.edit_calendar_outlined, size: 17),
+          label: const Text('Ubah jadwal'),
+        ));
+      }
+      if (request.status != ServiceRequestStatus.requested &&
+          request.status != ServiceRequestStatus.cancelled) {
+        actions.add(OutlinedButton.icon(
+          onPressed: () => _showTracking(context, provider, request),
+          icon: const Icon(Icons.location_on_outlined, size: 17),
+          label: const Text('Tracking'),
+        ));
+      }
       if ((request.status == ServiceRequestStatus.assigned ||
               request.status == ServiceRequestStatus.waitingApproval) &&
           !request.estimateApproved) {
@@ -451,8 +691,23 @@ class _RequestCard extends StatelessWidget {
           label: const Text('Bayar servis'),
         ));
       }
+      if (request.status == ServiceRequestStatus.completed) {
+        actions.add(OutlinedButton.icon(
+          onPressed: () => _openReview(context, provider, request),
+          icon: const Icon(Icons.star_outline, size: 17),
+          label: const Text('Beri rating'),
+        ));
+      }
     }
     if (role == SerfixRole.technician) {
+      if (request.status != ServiceRequestStatus.completed &&
+          request.status != ServiceRequestStatus.cancelled) {
+        actions.add(OutlinedButton.icon(
+          onPressed: () => _updateTracking(context, provider, request),
+          icon: const Icon(Icons.near_me_outlined, size: 17),
+          label: const Text('Update lokasi'),
+        ));
+      }
       if (request.status == ServiceRequestStatus.assigned &&
           request.estimateApproved) {
         actions.add(FilledButton.tonalIcon(
@@ -475,6 +730,273 @@ class _RequestCard extends StatelessWidget {
       }
     }
     return actions;
+  }
+
+  Future<void> _openChat(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    await _MessageList._openChat(context, request);
+  }
+
+  Future<void> _openAttachments(BuildContext context,
+      SerfixProvider provider, SerfixRequest request) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final files = Future<List<Map<String, dynamic>>>(
+              () => provider.getAttachments(request.id));
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Lampiran bukti servis',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 10),
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: files,
+                    builder: (_, snapshot) {
+                      if (!snapshot.hasData) {
+                        return const Padding(
+                          padding: EdgeInsets.all(18),
+                          child: Center(child: CircularProgressIndicator()),
+                        );
+                      }
+                      if (snapshot.data!.isEmpty) {
+                        return const Text('Belum ada lampiran.');
+                      }
+                      return SizedBox(
+                        height: 180,
+                        child: ListView(
+                          children: snapshot.data!
+                              .map((item) => ListTile(
+                                    leading: const Icon(Icons.image_outlined),
+                                    title: Text(
+                                        item['file_name']?.toString() ?? ''),
+                                    subtitle: Text(
+                                        '${item['kind']} · ${item['uploader_name']}'),
+                                  ))
+                              .toList(),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () async {
+                        final picked = await ImagePicker()
+                            .pickImage(source: ImageSource.gallery);
+                        if (picked == null) return;
+                        final bytes = await picked.readAsBytes();
+                        await provider.uploadAttachment(
+                          requestId: request.id,
+                          kind: provider.role == SerfixRole.customer
+                              ? 'damage'
+                              : 'repair',
+                          fileName: picked.name,
+                          base64: base64Encode(bytes),
+                        );
+                        setSheetState(() {});
+                        if (sheetContext.mounted) {
+                          _message(sheetContext, 'Lampiran berhasil diunggah.');
+                        }
+                      },
+                      icon: const Icon(Icons.add_photo_alternate_outlined),
+                      label: const Text('Tambah foto bukti'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _reschedule(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: request.scheduledAt,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(request.scheduledAt),
+    );
+    if (time == null || !context.mounted) return;
+    final scheduled =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    try {
+      await provider.rescheduleRequest(request.id, scheduled);
+      if (context.mounted) _message(context, 'Jadwal berhasil diperbarui.');
+    } catch (error) {
+      if (context.mounted) _message(context, error.toString(), error: true);
+    }
+  }
+
+  Future<void> _showTracking(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    try {
+      final tracking = await provider.getTracking(request.id);
+      if (!context.mounted) return;
+      showModalBottomSheet<void>(
+        context: context,
+        builder: (_) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Lokasi teknisi',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 12),
+                Text('Status: ${tracking?['status'] ?? 'not_started'}'),
+                Text('ETA: ${tracking?['eta_minutes'] ?? '-'} menit'),
+                Text(tracking?['note']?.toString() ?? ''),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (context.mounted) _message(context, error.toString(), error: true);
+    }
+  }
+
+  Future<void> _updateTracking(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    String status = 'heading';
+    final etaController = TextEditingController(text: '30');
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              18, 18, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Update status perjalanan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              DropdownButtonFormField<String>(
+                initialValue: status,
+                items: const [
+                  DropdownMenuItem(value: 'heading', child: Text('Menuju lokasi')),
+                  DropdownMenuItem(value: 'arrived', child: Text('Sudah tiba')),
+                  DropdownMenuItem(value: 'working', child: Text('Sedang bekerja')),
+                  DropdownMenuItem(value: 'completed', child: Text('Selesai')),
+                ],
+                onChanged: (value) =>
+                    setSheetState(() => status = value ?? 'heading'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: etaController,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(labelText: 'Estimasi tiba (menit)'),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    await provider.updateTracking(
+                      requestId: request.id,
+                      status: status,
+                      etaMinutes: int.tryParse(etaController.text),
+                      note: status == 'arrived'
+                          ? 'Teknisi sudah tiba di lokasi.'
+                          : 'Teknisi memperbarui status perjalanan.',
+                    );
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                    if (context.mounted) {
+                      _message(context, 'Status lokasi diperbarui.');
+                    }
+                  },
+                  child: const Text('Simpan status'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    etaController.dispose();
+  }
+
+  Future<void> _openReview(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    int rating = 5;
+    final review = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              18, 18, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Rating teknisi',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 8),
+              Row(
+                children: List.generate(
+                  5,
+                  (index) => IconButton(
+                    onPressed: () =>
+                        setSheetState(() => rating = index + 1),
+                    icon: Icon(index < rating
+                        ? Icons.star
+                        : Icons.star_border),
+                    color: Colors.amber,
+                  ),
+                ),
+              ),
+              TextField(
+                controller: review,
+                maxLines: 3,
+                decoration:
+                    const InputDecoration(labelText: 'Ulasan (opsional)'),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () async {
+                    await provider.saveReview(
+                        request.id, rating, review.text.trim());
+                    if (sheetContext.mounted) Navigator.pop(sheetContext);
+                    if (context.mounted) {
+                      _message(context, 'Terima kasih atas ulasan Anda.');
+                    }
+                  },
+                  child: const Text('Kirim rating'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    review.dispose();
   }
 }
 
@@ -1587,7 +2109,7 @@ Future<void> _pay(
             ),
             const SizedBox(height: 8),
             const Text(
-              'Pembayaran menunggu verifikasi admin. SerFix belum terhubung ke payment gateway.',
+              'QR adalah integrasi gateway/QRIS. Referensi dibuat otomatis jika dikosongkan.',
               style: TextStyle(fontSize: 12),
             ),
           ],
@@ -1606,6 +2128,10 @@ Future<void> _pay(
     ),
   );
   if (result == true && context.mounted) {
+    if (reference.text.trim().isEmpty && method == 'qr') {
+      reference.text =
+          'QRIS-${DateTime.now().millisecondsSinceEpoch}-${request.id}';
+    }
     await _run(
       context,
       () => provider.createPayment(request.id, method, reference.text.trim()),

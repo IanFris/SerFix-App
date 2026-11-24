@@ -15,6 +15,7 @@ class SerfixProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _warranties = [];
   List<Map<String, dynamic>> _payments = [];
   List<Map<String, dynamic>> _staff = [];
+  List<Map<String, dynamic>> _notifications = [];
   Map<String, dynamic> _summary = {};
   bool _isLoading = false;
   String? _errorMessage;
@@ -32,6 +33,8 @@ class SerfixProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get warranties => List.unmodifiable(_warranties);
   List<Map<String, dynamic>> get payments => List.unmodifiable(_payments);
   List<Map<String, dynamic>> get staff => List.unmodifiable(_staff);
+  List<Map<String, dynamic>> get notifications =>
+      List.unmodifiable(_notifications);
   Map<String, dynamic> get summary => Map.unmodifiable(_summary);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -59,6 +62,7 @@ class SerfixProvider extends ChangeNotifier {
       _categories = results[0] as List<ServiceCategory>;
       _requests = results[1] as List<SerfixRequest>;
       _summary = results[2] as Map<String, dynamic>;
+      _notifications = await ApiService.getNotifications();
       if (role == SerfixRole.admin || role == SerfixRole.manager) {
         _technicians = await ApiService.getTechnicians();
         _parts = await ApiService.getParts();
@@ -209,6 +213,64 @@ class SerfixProvider extends ChangeNotifier {
     );
     await refresh();
   }
+
+  Future<void> readNotifications() async {
+    await ApiService.readNotifications();
+    await refresh();
+  }
+
+  Future<List<Map<String, dynamic>>> getMessages(int requestId) =>
+      ApiService.getMessages(requestId);
+
+  Future<void> sendMessage(int requestId, String message) =>
+      ApiService.sendMessage(requestId, message);
+
+  Future<Map<String, dynamic>?> getTracking(int requestId) =>
+      ApiService.getTracking(requestId);
+
+  Future<void> updateTracking({
+    required int requestId,
+    required String status,
+    double? latitude,
+    double? longitude,
+    int? etaMinutes,
+    String note = '',
+  }) =>
+      ApiService.updateTracking(
+        requestId: requestId,
+        status: status,
+        latitude: latitude,
+        longitude: longitude,
+        etaMinutes: etaMinutes,
+        note: note,
+      );
+
+  Future<List<Map<String, dynamic>>> getAttachments(int requestId) =>
+      ApiService.getAttachments(requestId);
+
+  Future<void> uploadAttachment({
+    required int requestId,
+    required String kind,
+    required String fileName,
+    required String base64,
+  }) =>
+      ApiService.uploadAttachment(
+        requestId: requestId,
+        kind: kind,
+        fileName: fileName,
+        base64: base64,
+      );
+
+  Future<void> rescheduleRequest(int requestId, DateTime scheduledAt) async {
+    await ApiService.rescheduleRequest(requestId, scheduledAt);
+    await refresh();
+  }
+
+  Future<Map<String, dynamic>?> getReview(int requestId) =>
+      ApiService.getReview(requestId);
+
+  Future<void> saveReview(int requestId, int rating, String review) =>
+      ApiService.saveReview(requestId, rating, review);
 
   Future<void> savePart({
     int? id,

@@ -304,4 +304,86 @@ class ApiService {
       'description': description,
     });
   }
+
+  static Future<List<Map<String, dynamic>>> getNotifications() async =>
+      _mapList(await _getData(
+          '${ApiConstants.enhancements}?action=notifications'));
+
+  static Future<void> readNotifications() async =>
+      await _postData(ApiConstants.enhancements,
+          {'action': 'read_notifications'});
+
+  static Future<List<Map<String, dynamic>>> getMessages(int requestId) async =>
+      _mapList(await _getData(
+          '${ApiConstants.enhancements}?action=messages&request_id=$requestId'));
+
+  static Future<void> sendMessage(int requestId, String message) async =>
+      await _postData(ApiConstants.enhancements,
+          {'action': 'message', 'request_id': requestId, 'message': message});
+
+  static Future<Map<String, dynamic>?> getTracking(int requestId) async {
+    final data = await _getData(
+        '${ApiConstants.enhancements}?action=tracking&request_id=$requestId');
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  static Future<void> updateTracking({
+    required int requestId,
+    required String status,
+    double? latitude,
+    double? longitude,
+    int? etaMinutes,
+    String note = '',
+  }) async =>
+      await _postData(ApiConstants.enhancements, {
+        'action': 'tracking',
+        'request_id': requestId,
+        'status': status,
+        if (latitude != null) 'latitude': latitude,
+        if (longitude != null) 'longitude': longitude,
+        if (etaMinutes != null) 'eta_minutes': etaMinutes,
+        'note': note,
+      });
+
+  static Future<List<Map<String, dynamic>>> getAttachments(
+          int requestId) async =>
+      _mapList(await _getData(
+          '${ApiConstants.enhancements}?action=attachments&request_id=$requestId'));
+
+  static Future<void> uploadAttachment({
+    required int requestId,
+    required String kind,
+    required String fileName,
+    required String base64,
+  }) async =>
+      await _postData(ApiConstants.enhancements, {
+        'action': 'attachment',
+        'request_id': requestId,
+        'kind': kind,
+        'file_name': fileName,
+        'base64': base64,
+      });
+
+  static Future<void> rescheduleRequest(
+          int requestId, DateTime scheduledAt) async =>
+      await _postData(ApiConstants.enhancements, {
+        'action': 'reschedule',
+        'request_id': requestId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+      });
+
+  static Future<Map<String, dynamic>?> getReview(int requestId) async {
+    final data = await _getData(
+        '${ApiConstants.enhancements}?action=review&request_id=$requestId');
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  static Future<void> saveReview(
+          int requestId, int rating, String review) async =>
+      await _postData(ApiConstants.enhancements, {
+        'action': 'review',
+        'request_id': requestId,
+        'rating': rating,
+        'review': review,
+      });
 }

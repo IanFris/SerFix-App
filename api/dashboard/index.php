@@ -50,5 +50,15 @@ if ($user['role'] === 'admin' || $user['role'] === 'manager') {
     $summary['pending_warranty_claims'] = (int)$db->query(
         'SELECT COUNT(*) FROM warranty_claims WHERE status = "pending"'
     )->fetchColumn();
+    $summary['average_rating'] = (float)$db->query(
+        'SELECT COALESCE(AVG(rating), 0) FROM service_reviews'
+    )->fetchColumn();
+    $topCategory = $db->query(
+        'SELECT sc.name, COUNT(*) AS total
+         FROM service_requests sr JOIN service_categories sc ON sc.id = sr.category_id
+         GROUP BY sc.id, sc.name ORDER BY total DESC LIMIT 1'
+    )->fetch(PDO::FETCH_ASSOC);
+    $summary['top_category'] = $topCategory['name'] ?? '-';
+    $summary['top_category_count'] = (int)($topCategory['total'] ?? 0);
 }
 sendResponse('success', 'Ringkasan SerFix berhasil diambil.', $summary);
