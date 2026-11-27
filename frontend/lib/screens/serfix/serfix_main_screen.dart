@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -321,9 +322,8 @@ class _Dashboard extends StatelessWidget {
           const SizedBox(height: AppSpacing.x4),
           if (role == SerfixRole.customer && !isGuest)
             _HeroCard(
-              title: 'Rumah kembali nyaman.',
-              subtitle:
-                  'Teknisi terverifikasi, servis transparan, dan garansi jelas.',
+              title: 'AC adem.\nHati tenang.',
+              subtitle: 'Teknisi terpilih. Harga transparan. Garansi jelas.',
               buttonLabel: 'Pesan servis',
               onPressed: () => _showRequestForm(context),
             ),
@@ -509,12 +509,23 @@ class _QuickActionTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  icon,
-                  size: AppSpacing.iconLarge,
-                  color: Theme.of(context).colorScheme.primary,
+                Container(
+                  width: AppSpacing.quickActionIconBox,
+                  height: AppSpacing.quickActionIconBox,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .primary
+                        .withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Icon(
+                    icon,
+                    size: AppSpacing.iconLarge,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.x2),
+                const SizedBox(height: AppSpacing.x1),
                 Text(
                   label,
                   maxLines: 1,
@@ -3041,84 +3052,267 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
+        clipBehavior: Clip.antiAlias,
         padding: const EdgeInsets.all(AppSpacing.x4),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [AppColors.primary, AppColors.secondary],
+            colors: [AppColors.secondary, AppColors.primary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
           children: [
-            Row(
+            const Positioned.fill(
+                child: CustomPaint(painter: _BreezePainter())),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: AppSpacing.appLogoSize,
-                  height: AppSpacing.appLogoSize,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  ),
-                  child: const Icon(
-                    Icons.ac_unit_outlined,
-                    color: AppColors.accent,
-                    size: AppSpacing.iconLarge,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.x3),
-                Expanded(
-                  child: Text(
-                    'LAYANAN RUMAH TANGGA',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.86),
-                          letterSpacing: 0.6,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.x2,
+                        vertical: AppSpacing.x1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusPill),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.18),
                         ),
+                      ),
+                      child: Text(
+                        'SERFIX CARE',
+                        style:
+                            Theme.of(context).textTheme.labelMedium?.copyWith(
+                                  color: Colors.white,
+                                  letterSpacing: 0.7,
+                                ),
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.verified_user_outlined,
+                      color: AppColors.accent,
+                      size: AppSpacing.iconMedium,
+                    ),
+                    const SizedBox(width: AppSpacing.x1),
+                    Text(
+                      'TERVERIFIKASI',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: Colors.white,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.x3),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  height: 1.08,
+                                ),
+                          ),
+                          const SizedBox(height: AppSpacing.x2),
+                          Text(
+                            subtitle,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.84),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.x2),
+                    Semantics(
+                      image: true,
+                      label: 'Ilustrasi unit AC SerFix dengan aliran udara',
+                      child: const _AirConditionerIllustration(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.x3),
+                SizedBox(
+                  height: AppSpacing.tapTarget,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      onPressed();
+                    },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: AppColors.secondary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                      ),
+                    ),
+                    icon: const Icon(
+                      Icons.arrow_forward_rounded,
+                      size: AppSpacing.iconSmall,
+                    ),
+                    label: Text(buttonLabel),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.x4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                  ),
+          ],
+        ),
+      );
+}
+
+class _AirConditionerIllustration extends StatelessWidget {
+  const _AirConditionerIllustration();
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: AppSpacing.homeHeroArtWidth,
+        height: AppSpacing.homeHeroArtHeight,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Positioned.fill(
+              child: CustomPaint(painter: _AirConditionerPainter()),
             ),
-            const SizedBox(height: AppSpacing.x1),
-            Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.9),
-                  ),
-            ),
-            const SizedBox(height: AppSpacing.x4),
-            SizedBox(
-              height: AppSpacing.tapTarget,
-              child: FilledButton.icon(
-                onPressed: () {
-                  HapticFeedback.selectionClick();
-                  onPressed();
-                },
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppColors.secondary,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  ),
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                width: AppSpacing.quickActionIconBox,
+                height: AppSpacing.quickActionIconBox,
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.secondary, width: 2),
                 ),
-                icon: const Icon(
-                  Icons.arrow_forward_rounded,
-                  size: AppSpacing.iconSmall,
+                child: const Icon(
+                  Icons.ac_unit_rounded,
+                  color: AppColors.secondary,
+                  size: AppSpacing.iconMedium,
                 ),
-                label: Text(buttonLabel),
               ),
             ),
           ],
         ),
       );
+}
+
+class _AirConditionerPainter extends CustomPainter {
+  const _AirConditionerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final unit = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        size.width * 0.08,
+        size.height * 0.22,
+        size.width * 0.78,
+        size.height * 0.42,
+      ),
+      Radius.circular(size.height * 0.1),
+    );
+    canvas.drawRRect(
+      unit.shift(Offset(0, size.height * 0.04)),
+      Paint()
+        ..color = AppColors.neutral900.withValues(alpha: 0.20)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    canvas.drawRRect(
+      unit,
+      Paint()..color = const Color(0xFFF6FAFB),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(
+          size.width * 0.16,
+          size.height * 0.3,
+          size.width * 0.62,
+          size.height * 0.06,
+        ),
+        Radius.circular(size.height * 0.03),
+      ),
+      Paint()..color = AppColors.neutral200,
+    );
+    final ventPaint = Paint()
+      ..color = AppColors.primary
+      ..strokeWidth = size.height * 0.025
+      ..strokeCap = StrokeCap.round;
+    for (var index = 0; index < 3; index++) {
+      final y = size.height * (0.72 + index * 0.11);
+      final breeze = ui.Path()
+        ..moveTo(size.width * 0.24, y)
+        ..cubicTo(
+          size.width * 0.40,
+          y + size.height * 0.04,
+          size.width * 0.62,
+          y - size.height * 0.05,
+          size.width * 0.88,
+          y,
+        );
+      canvas.drawPath(
+        breeze,
+        Paint()
+          ..color = AppColors.accent.withValues(alpha: 0.9 - index * 0.18)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = size.height * 0.035
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    canvas.drawCircle(
+      Offset(size.width * 0.76, size.height * 0.29),
+      size.height * 0.018,
+      ventPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _AirConditionerPainter oldDelegate) => false;
+}
+
+class _BreezePainter extends CustomPainter {
+  const _BreezePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.accent.withValues(alpha: 0.12)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = AppSpacing.x1;
+    for (var index = 0; index < 3; index++) {
+      final path = ui.Path()
+        ..moveTo(size.width * 0.38, size.height * (0.30 + index * 0.1))
+        ..cubicTo(
+          size.width * 0.58,
+          size.height * (0.12 + index * 0.1),
+          size.width * 0.78,
+          size.height * (0.48 + index * 0.1),
+          size.width,
+          size.height * (0.22 + index * 0.1),
+        );
+      canvas.drawPath(path, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BreezePainter oldDelegate) => false;
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -3167,8 +3361,26 @@ class _SectionHeading extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) =>
-      Text(title, style: Theme.of(context).textTheme.titleSmall);
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: AppSpacing.x1,
+            height: AppSpacing.iconMedium,
+            decoration: BoxDecoration(
+              color: AppColors.accent,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.x2),
+          Flexible(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+          ),
+        ],
+      );
 }
 
 class _InfoTile extends StatelessWidget {

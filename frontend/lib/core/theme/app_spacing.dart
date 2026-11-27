@@ -22,6 +22,10 @@ abstract final class AppSpacing {
   static const double dragHandleWidth = 38;
   static const double dragHandleHeight = 4;
   static const double serviceIconBox = 44;
+  static const double quickActionIconBox = 36;
+  static const double homeHeroArtWidth = 96;
+  static const double homeHeroArtHeight = 88;
+  static const double serviceArtHeight = 56;
   static const double quickActionHeight = 84;
   static const double statusBadgeHeight = 28;
   static const double bottomNavigationHeight = 68;

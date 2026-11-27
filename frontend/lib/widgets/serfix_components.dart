@@ -233,38 +233,73 @@ class SerfixServiceCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: AppSpacing.serviceIconBox,
-                      height: AppSpacing.serviceIconBox,
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest,
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusMd),
-                      ),
-                      child: Icon(icon, color: colors.primary, size: 24),
-                    ),
-                    const Spacer(),
-                    if (rating != null)
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: AppSpacing.iconSmall,
-                            color: AppColors.warning,
+                Container(
+                  height: AppSpacing.serviceArtHeight,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        right: AppSpacing.x2,
+                        top: AppSpacing.x2,
+                        child: Container(
+                          width: AppSpacing.serviceIconBox,
+                          height: AppSpacing.serviceIconBox,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: colors.primary.withValues(alpha: 0.08),
                           ),
-                          Text(
-                            rating!,
-                            style: Theme.of(context).textTheme.labelMedium,
-                          ),
-                        ],
+                        ),
                       ),
-                  ],
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: AppSpacing.x3),
+                          child: Icon(
+                            icon,
+                            color: colors.primary,
+                            size: AppSpacing.iconExtraLarge,
+                          ),
+                        ),
+                      ),
+                      if (rating != null)
+                        Positioned(
+                          right: AppSpacing.x2,
+                          top: AppSpacing.x2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.x2,
+                              vertical: AppSpacing.x1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusPill,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: AppSpacing.iconSmall,
+                                  color: AppColors.warning,
+                                ),
+                                Text(
+                                  rating!,
+                                  style:
+                                      Theme.of(context).textTheme.labelMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: AppSpacing.x3),
+                const SizedBox(height: AppSpacing.x2),
                 Text(
                   title,
                   maxLines: 1,
@@ -274,18 +309,41 @@ class SerfixServiceCard extends StatelessWidget {
                 const SizedBox(height: AppSpacing.x1),
                 Text(
                   description,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const Spacer(),
-                Text(
-                  priceLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.x2,
+                    vertical: AppSpacing.x1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          priceLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: colors.primary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                        ),
+                      ),
+                      Icon(
+                        Icons.arrow_forward_rounded,
+                        size: AppSpacing.iconSmall,
                         color: colors.primary,
                       ),
+                    ],
+                  ),
                 ),
               ],
             ),
