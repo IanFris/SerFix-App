@@ -28,6 +28,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $stmt->execute([':user_id' => $user['id']]);
         sendResponse('success', 'Notifikasi berhasil diambil.', $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
+    if ($action === 'assets') {
+        if ($user['role'] !== 'customer') {
+            sendResponse('error', 'Hanya pelanggan yang dapat melihat aset.', null, 403);
+        }
+        $stmt = $db->prepare('SELECT a.*, c.name AS category_name
+                              FROM customer_assets a
+                              LEFT JOIN service_categories c ON c.id = a.category_id
+                              WHERE a.customer_id = :customer_id
+                              ORDER BY COALESCE(a.next_service_at, "9999-12-31") ASC, a.name');
+        $stmt->execute([':customer_id' => $user['id']]);
+        sendResponse('success', 'Aset pelanggan berhasil diambil.', $stmt->fetchAll(PDO::FETCH_ASSOC));
+    }
     $requestId = filter_input(INPUT_GET, 'request_id', FILTER_VALIDATE_INT);
     if ($requestId === false || $requestId === null || !canAccessRequest($db, $user, (int)$requestId)) {
         sendResponse('error', 'Pengajuan tidak ditemukan atau Anda tidak memiliki akses.', null, 404);
@@ -60,15 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                               WHERE service_request_id = :request_id');
         $stmt->execute([':request_id' => $requestId]);
         sendResponse('success', 'Ulasan berhasil diambil.', $stmt->fetch(PDO::FETCH_ASSOC) ?: null);
-    }
-    if ($action === 'assets') {
-        $stmt = $db->prepare('SELECT a.*, c.name AS category_name
-                              FROM customer_assets a
-                              LEFT JOIN service_categories c ON c.id = a.category_id
-                              WHERE a.customer_id = :customer_id
-                              ORDER BY COALESCE(a.next_service_at, "9999-12-31") ASC, a.name');
-        $stmt->execute([':customer_id' => $user['id']]);
-        sendResponse('success', 'Aset pelanggan berhasil diambil.', $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
     if ($action === 'reschedules') {
         $stmt = $db->prepare('SELECT rp.*, sr.customer_id, sr.technician_id

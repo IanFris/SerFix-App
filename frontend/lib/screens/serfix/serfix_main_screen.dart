@@ -1826,20 +1826,31 @@ class _RequestCard extends StatelessWidget {
 
   Future<void> _reschedule(BuildContext context, SerfixProvider provider,
       SerfixRequest request) async {
+    final now = DateTime.now();
+    final firstAvailableTime = now.add(const Duration(minutes: 5));
+    final firstDate = DateTime(now.year, now.month, now.day);
+    final initialDate = request.scheduledAt.isAfter(firstAvailableTime)
+        ? request.scheduledAt
+        : firstAvailableTime;
     final date = await showDatePicker(
       context: context,
-      initialDate: request.scheduledAt,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate:
+          DateTime(initialDate.year, initialDate.month, initialDate.day),
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
     );
     if (date == null || !context.mounted) return;
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(request.scheduledAt),
+      initialTime: TimeOfDay.fromDateTime(initialDate),
     );
     if (time == null || !context.mounted) return;
     final scheduled =
         DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (!scheduled.isAfter(DateTime.now())) {
+      _message(context, 'Pilih waktu setelah waktu saat ini.', error: true);
+      return;
+    }
     try {
       await provider.proposeReschedule(
           requestId: request.id,
