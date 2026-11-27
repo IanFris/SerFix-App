@@ -11,9 +11,16 @@ function admin_start_session(): void
 
     ini_set('session.use_strict_mode', '1');
     session_name('serfix_admin');
+    $scriptPath = str_replace(
+        '\\',
+        '/',
+        $_SERVER['SCRIPT_NAME'] ?? '/api/admin/index.php',
+    );
+    $cookiePath = rtrim(dirname($scriptPath), '/');
+    $cookiePath = $cookiePath === '' ? '/' : $cookiePath . '/';
     session_set_cookie_params([
         'lifetime' => 0,
-        'path' => '/serfix/api/admin',
+        'path' => $cookiePath,
         'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
         'httponly' => true,
         'samesite' => 'Strict',
