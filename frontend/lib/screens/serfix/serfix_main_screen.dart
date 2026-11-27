@@ -55,14 +55,11 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           width: AppSpacing.appLogoSize,
           height: AppSpacing.appLogoSize,
           decoration: BoxDecoration(
-            color: AppColors.primary.withValues(alpha: 0.10),
+            color: AppColors.accent.withValues(alpha: 0.42),
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           ),
-          child: const Icon(
-            Icons.ac_unit_outlined,
-            color: AppColors.primary,
-            size: AppSpacing.iconLarge,
-          ),
+          child: const Icon(Icons.handyman_rounded,
+              color: AppColors.primary, size: AppSpacing.iconLarge),
         ),
         actions: [
           if (!auth.isGuest)
@@ -311,7 +308,10 @@ class _Dashboard extends StatelessWidget {
             role == SerfixRole.customer
                 ? (name.isEmpty ? 'Selamat datang' : 'Halo, $name')
                 : 'Halo, ${role.label}',
-            style: Theme.of(context).textTheme.headlineSmall,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontSize: 25,
+                  letterSpacing: -0.8,
+                ),
           ),
           const SizedBox(height: AppSpacing.x1),
           Text(
@@ -323,9 +323,9 @@ class _Dashboard extends StatelessWidget {
           const SizedBox(height: AppSpacing.x4),
           if (role == SerfixRole.customer && !isGuest)
             _HeroCard(
-              title: 'AC adem.\nHati tenang.',
-              subtitle: 'Teknisi terpilih. Harga transparan. Garansi jelas.',
-              buttonLabel: 'Pesan servis',
+              title: 'Rumah nyaman.\nSerFix yang urus.',
+              subtitle: 'Teknisi terpilih, biaya transparan, garansi jelas.',
+              buttonLabel: 'Pesan servis sekarang',
               onPressed: () => _showRequestForm(context),
             ),
           if (role == SerfixRole.customer && !isGuest)
@@ -500,10 +500,13 @@ class _QuickActionTile extends StatelessWidget {
               vertical: AppSpacing.x3,
             ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              color: Theme.of(context).brightness == Brightness.light
+                  ? Colors.white
+                  : Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               border: Border.all(
                 color: Theme.of(context).brightness == Brightness.light
-                    ? AppColors.neutral200
+                    ? AppColors.neutral100
                     : AppColors.darkBorder,
               ),
             ),
@@ -514,16 +517,13 @@ class _QuickActionTile extends StatelessWidget {
                   width: AppSpacing.quickActionIconBox,
                   height: AppSpacing.quickActionIconBox,
                   decoration: BoxDecoration(
-                    color: Theme.of(context)
-                        .colorScheme
-                        .primary
-                        .withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    color: _quickActionColor(label).withValues(alpha: 0.14),
+                    shape: BoxShape.circle,
                   ),
                   child: Icon(
                     icon,
                     size: AppSpacing.iconLarge,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: _quickActionColor(label),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.x1),
@@ -540,6 +540,13 @@ class _QuickActionTile extends StatelessWidget {
           ),
         ),
       );
+
+  Color _quickActionColor(String label) => switch (label) {
+        'Riwayat' => AppColors.primary,
+        'Chat teknisi' => const Color(0xFF1689A7),
+        'Garansi' => const Color(0xFFE2A51A),
+        _ => AppColors.primary,
+      };
 }
 
 class _ActiveServiceCard extends StatelessWidget {
@@ -897,13 +904,15 @@ class _MessageList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final requests = context.watch<SerfixProvider>().requests;
+    final provider = context.watch<SerfixProvider>();
+    final user = context.watch<AuthProvider>().currentUser;
+    final requests = provider.requests;
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
       children: [
-        Text('Pesan layanan', style: Theme.of(context).textTheme.titleLarge),
+        Text('Pesan', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
-        const Text('Chat langsung dengan pelanggan atau teknisi.'),
+        const Text('Percakapan untuk setiap servis kamu.'),
         const SizedBox(height: 14),
         if (requests.isEmpty)
           const SerfixEmptyState(
@@ -911,18 +920,74 @@ class _MessageList extends StatelessWidget {
             message: 'Chat tersedia setelah ada pengajuan servis.',
           )
         else
-          ...requests.map((request) => Card(
-                child: ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.chat_outlined),
-                  ),
-                  title: Text(request.service),
-                  subtitle:
-                      Text(request.technicianName ?? request.customerName),
-                  trailing: const Icon(Icons.chevron_right),
+          ...requests.map((request) {
+            final contact = _chatContactName(user, request);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.x2),
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                   onTap: () => _openChat(context, request),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.x3,
+                      vertical: AppSpacing.x2,
+                    ),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 25,
+                          backgroundColor:
+                              AppColors.primary.withValues(alpha: 0.12),
+                          foregroundColor: AppColors.primary,
+                          child: Text(
+                            _chatInitial(contact),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.x3),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                contact,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleSmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: AppSpacing.x1),
+                              Text(
+                                '${request.service} · ${request.status.label}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.x2),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.45),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              )),
+              ),
+            );
+          }),
       ],
     );
   }
@@ -950,6 +1015,7 @@ class _ChatScreenState extends State<_ChatScreen> {
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
   String? _loadError;
+  bool _sending = false;
 
   @override
   void initState() {
@@ -982,13 +1048,16 @@ class _ChatScreenState extends State<_ChatScreen> {
 
   Future<void> _send() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
     try {
       await context.read<SerfixProvider>().sendMessage(widget.request.id, text);
       _messageController.clear();
       await _load();
     } catch (error) {
       if (mounted) _message(context, error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -1000,20 +1069,53 @@ class _ChatScreenState extends State<_ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().currentUser;
+    final contact = _chatContactName(user, widget.request);
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: AppColors.secondary,
+        foregroundColor: Colors.white,
         leading: IconButton(
           tooltip: 'Kembali',
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.arrow_back),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        titleSpacing: 0,
+        title: Row(
           children: [
-            const Text('Chat'),
-            Text(
-              widget.request.service,
-              style: Theme.of(context).textTheme.bodySmall,
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: Colors.white.withValues(alpha: 0.18),
+              foregroundColor: Colors.white,
+              child: Text(
+                _chatInitial(contact),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.x2),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    contact,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: Colors.white,
+                        ),
+                  ),
+                  Text(
+                    '${widget.request.service} · #${widget.request.id}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.78),
+                        ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1023,71 +1125,240 @@ class _ChatScreenState extends State<_ChatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: _loading
-                  ? const Padding(
-                      padding: EdgeInsets.all(AppSpacing.x4),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SerfixSkeleton(width: 180),
-                          SizedBox(height: AppSpacing.x3),
-                          SerfixSkeleton(width: 240, height: 44),
-                          SizedBox(height: AppSpacing.x2),
-                          SerfixSkeleton(width: 200, height: 44),
-                        ],
-                      ),
-                    )
-                  : _loadError != null
-                      ? SerfixEmptyState(
-                          title: 'Chat belum tersambung',
-                          message: _loadError!,
-                          actionLabel: 'Coba lagi',
-                          onAction: () => _load(showLoading: true),
-                        )
-                      : _messages.isEmpty
-                          ? const SerfixEmptyState(
-                              title: 'Mulai percakapan',
-                              message:
-                                  'Kirim pesan kepada teknisi tentang servis ini.',
-                            )
-                          : ListView.builder(
-                              padding: const EdgeInsets.all(18),
-                              itemCount: _messages.length,
-                              itemBuilder: (_, index) {
-                                final item = _messages[index];
-                                return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(
-                                      item['sender_name']?.toString() ??
-                                          'Pengguna',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.w700)),
-                                  subtitle:
-                                      Text(item['message']?.toString() ?? ''),
-                                );
-                              },
+              child: Container(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? const Color(0xFFF2F0EA)
+                    : Theme.of(context).scaffoldBackgroundColor,
+                child: _loading
+                    ? const Padding(
+                        padding: EdgeInsets.all(AppSpacing.x4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SerfixSkeleton(width: 180),
+                            SizedBox(height: AppSpacing.x3),
+                            SerfixSkeleton(width: 240, height: 44),
+                            SizedBox(height: AppSpacing.x2),
+                            SerfixSkeleton(width: 200, height: 44),
+                          ],
+                        ),
+                      )
+                    : _loadError != null
+                        ? SerfixEmptyState(
+                            title: 'Chat belum tersambung',
+                            message: _loadError!,
+                            actionLabel: 'Coba lagi',
+                            onAction: () => _load(showLoading: true),
+                          )
+                        : ListView.builder(
+                            reverse: true,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.x3,
+                              vertical: AppSpacing.x4,
                             ),
+                            itemCount:
+                                _messages.length + (_messages.isEmpty ? 1 : 0),
+                            itemBuilder: (context, index) {
+                              if (_messages.isEmpty) {
+                                return Center(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.x3,
+                                      vertical: AppSpacing.x2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .surface
+                                          .withValues(alpha: 0.92),
+                                      borderRadius: BorderRadius.circular(
+                                        AppSpacing.radiusMd,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Percakapan servis ${widget.request.service}',
+                                      textAlign: TextAlign.center,
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                  ),
+                                );
+                              }
+                              final item =
+                                  _messages[_messages.length - index - 1];
+                              final isMine = int.tryParse(
+                                    '${item['sender_id']}',
+                                  ) ==
+                                  user?.id;
+                              return _ChatMessageBubble(
+                                message: item['message']?.toString() ?? '',
+                                timestamp: item['created_at']?.toString(),
+                                isMine: isMine,
+                              );
+                            },
+                          ),
+              ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+            Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).dividerColor.withValues(
+                          alpha: 0.55,
+                        ),
+                  ),
+                ),
+              ),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x3,
+                AppSpacing.x2,
+                AppSpacing.x3,
+                AppSpacing.x2,
+              ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _messageController,
-                      decoration:
-                          const InputDecoration(hintText: 'Tulis pesan...'),
+                      enabled: !_sending,
+                      minLines: 1,
+                      maxLines: 4,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      decoration: InputDecoration(
+                        hintText: 'Tulis pesan',
+                        filled: true,
+                        fillColor:
+                            Theme.of(context).brightness == Brightness.light
+                                ? const Color(0xFFF4F5F5)
+                                : Theme.of(context)
+                                    .colorScheme
+                                    .surfaceContainerHighest,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x4,
+                          vertical: AppSpacing.x3,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusXl),
+                          borderSide: BorderSide.none,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusXl),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusXl),
+                          borderSide: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    onPressed: _send,
-                    icon: const Icon(Icons.send),
+                  const SizedBox(width: AppSpacing.x2),
+                  SizedBox(
+                    height: AppSpacing.tapTarget,
+                    width: AppSpacing.tapTarget,
+                    child: IconButton.filled(
+                      tooltip: 'Kirim pesan',
+                      onPressed: _sending ? null : _send,
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.send_rounded, size: 20),
+                    ),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatMessageBubble extends StatelessWidget {
+  const _ChatMessageBubble({
+    required this.message,
+    required this.timestamp,
+    required this.isMine,
+  });
+
+  final String message;
+  final String? timestamp;
+  final bool isMine;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bubbleColor = isMine
+        ? (isDark ? const Color(0xFF245C43) : const Color(0xFFD9FDD3))
+        : theme.colorScheme.surface;
+
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: AppSpacing.x2),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.x3,
+            AppSpacing.x2,
+            AppSpacing.x3,
+            AppSpacing.x1,
+          ),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: Radius.circular(isMine ? 16 : 4),
+              bottomRight: Radius.circular(isMine ? 4 : 16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.12 : 0.04),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message),
+              const SizedBox(height: AppSpacing.x1),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  _chatTime(timestamp),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    fontSize: 10,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.52),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -3353,7 +3624,7 @@ class _HeroCard extends StatelessWidget {
                     const SizedBox(width: AppSpacing.x2),
                     Semantics(
                       image: true,
-                      label: 'Ilustrasi unit AC SerFix dengan aliran udara',
+                      label: 'Maskot teknisi SerFix di samping unit AC',
                       child: const _AirConditionerIllustration(),
                     ),
                   ],
@@ -3416,6 +3687,31 @@ class _AirConditionerIllustration extends StatelessWidget {
                   Icons.ac_unit_rounded,
                   color: AppColors.secondary,
                   size: AppSpacing.iconMedium,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              bottom: 1,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: AppColors.accent,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.secondary, width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.secondary.withValues(alpha: 0.18),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.engineering_rounded,
+                  color: AppColors.secondary,
+                  size: 30,
                 ),
               ),
             ),
@@ -4327,6 +4623,27 @@ String _date(DateTime date) =>
 
 String _dateTime(DateTime date) =>
     '${_date(date)} · ${date.hour.toString().padLeft(2, '0')}.${date.minute.toString().padLeft(2, '0')}';
+
+String _chatContactName(User? user, SerfixRequest request) {
+  if (user?.role == 'customer') {
+    final technician = request.technicianName?.trim();
+    return technician == null || technician.isEmpty
+        ? 'Teknisi SerFix'
+        : technician;
+  }
+  return request.customerName.isEmpty ? 'Pelanggan' : request.customerName;
+}
+
+String _chatInitial(String name) =>
+    name.isEmpty ? '?' : String.fromCharCode(name.runes.first).toUpperCase();
+
+String _chatTime(String? rawTimestamp) {
+  final timestamp = DateTime.tryParse(rawTimestamp ?? '');
+  if (timestamp == null) return '';
+  final time = timestamp.toLocal();
+  return '${time.hour.toString().padLeft(2, '0')}:'
+      '${time.minute.toString().padLeft(2, '0')}';
+}
 
 void _message(BuildContext context, String message, {bool error = false}) {
   ScaffoldMessenger.of(context).showSnackBar(

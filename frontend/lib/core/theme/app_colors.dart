@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppColors {
-  static const primary = Color(0xFF126B78);
-  static const secondary = Color(0xFF16324F);
-  static const accent = Color(0xFF55D6C2);
+  static const primary = Color(0xFF087A3E);
+  static const secondary = Color(0xFF124B35);
+  static const accent = Color(0xFFC9F36A);
   static const success = Color(0xFF16845B);
   static const warning = Color(0xFFA65B00);
   static const error = Color(0xFFB42332);
