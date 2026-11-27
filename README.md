@@ -26,14 +26,15 @@ frontend/             Aplikasi mobile Flutter
 3. Sesuaikan host, nama database, pengguna, dan kata sandi MySQL di `api/config/database.php` bila konfigurasi lokal bukan `localhost`, `serfix_db`, `root`, dan kata sandi kosong.
 4. Impor `database/schema.sql` melalui phpMyAdmin atau MySQL CLI. Skema membuat database `serfix_db`, seluruh tabel, dan katalog layanan/sparepart awal. Impor ini **tidak** mengonversi atau menghapus data AutoLog.
 5. Impor migrasi `database/migrations/001_user_sessions.sql` dan `database/migrations/002_serfix_additional_features.sql` secara berurutan agar tabel sesi serta fitur chat, lokasi, lampiran, notifikasi, dan ulasan tersedia.
-6. Buat login untuk panel web admin dari terminal di folder proyek:
+6. Untuk fitur lanjutan, impor `database/migrations/003_serfix_ten_features.sql`. Migrasi ini menambahkan perangkat push, aset pelanggan, usulan penjadwalan ulang, transaksi payment gateway, antrean sinkronisasi offline, serta indeks pendukung laporan dan pencarian.
+7. Buat login untuk panel web admin dari terminal di folder proyek:
 
    ```powershell
    php api\admin\create_admin.php
    ```
 
    Skrip meminta email dan kata sandi admin (minimal 12 karakter). Buka `http://localhost/serfix/api/admin/` dan masuk dengan kredensial itu. Panel digunakan untuk membuat akun admin/manajer/teknisi serta mengelola operasional. Pendaftaran publik di aplikasi hanya membuat akun pelanggan.
-7. Aplikasi memakai endpoint `/serfix/api`; jika nama folder atau host berbeda, ubah Base URL pada halaman login atau **Pengaturan** setelah masuk.
+8. Aplikasi memakai endpoint `/serfix/api`; jika nama folder atau host berbeda, ubah Base URL pada halaman login atau **Pengaturan** setelah masuk.
 
 Panel admin mengelola sesi login secara terpisah dari akun peran aplikasi. Akun admin awal dari skrip diperlukan untuk masuk ke panel; akun staf yang dibuat di panel digunakan untuk masuk melalui aplikasi mobile.
 

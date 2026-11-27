@@ -60,5 +60,16 @@ if ($user['role'] === 'admin' || $user['role'] === 'manager') {
     )->fetch(PDO::FETCH_ASSOC);
     $summary['top_category'] = $topCategory['name'] ?? '-';
     $summary['top_category_count'] = (int)($topCategory['total'] ?? 0);
+    $monthStart = date('Y-m-01');
+    $monthEnd = date('Y-m-t');
+    $monthly = $db->prepare('SELECT COUNT(*) AS jobs,
+                                    COALESCE(SUM(CASE WHEN status = "completed" THEN final_amount ELSE 0 END), 0) AS revenue
+                             FROM service_requests
+                             WHERE requested_at BETWEEN :month_start AND :month_end');
+    $monthly->execute([':month_start' => $monthStart . ' 00:00:00',
+                       ':month_end' => $monthEnd . ' 23:59:59']);
+    $monthlyRow = $monthly->fetch(PDO::FETCH_ASSOC);
+    $summary['monthly_jobs'] = (int)($monthlyRow['jobs'] ?? 0);
+    $summary['monthly_revenue'] = (float)($monthlyRow['revenue'] ?? 0);
 }
 sendResponse('success', 'Ringkasan SerFix berhasil diambil.', $summary);

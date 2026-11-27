@@ -1,7 +1,12 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/user.dart';
@@ -482,13 +487,31 @@ class _ChatSheetState extends State<_ChatSheet> {
   }
 }
 
-class _RequestList extends StatelessWidget {
+class _RequestList extends StatefulWidget {
   const _RequestList();
+
+  @override
+  State<_RequestList> createState() => _RequestListState();
+}
+
+class _RequestListState extends State<_RequestList> {
+  String _search = '';
+  String _status = '';
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SerfixProvider>();
-    final requests = provider.requests;
+    var requests = provider.requests.where((request) {
+      final query = _search.toLowerCase();
+      final matchesSearch = query.isEmpty ||
+          request.service.toLowerCase().contains(query) ||
+          request.device.toLowerCase().contains(query) ||
+          request.customerName.toLowerCase().contains(query) ||
+          request.id.toString().contains(query);
+      final matchesStatus = _status.isEmpty ||
+          (request.status.name == _status);
+      return matchesSearch && matchesStatus;
+    }).toList();
     return RefreshIndicator(
       onRefresh: provider.refresh,
       child: ListView(
@@ -498,6 +521,29 @@ class _RequestList extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 4),
           const Text('Jadwal, penugasan teknisi, biaya, dan progres servis.'),
+          const SizedBox(height: 14),
+          TextField(
+            decoration: const InputDecoration(
+              labelText: 'Cari layanan atau pelanggan',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (value) => setState(() => _search = value),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: _status.isEmpty ? null : _status,
+            decoration: const InputDecoration(labelText: 'Filter status'),
+            items: const [
+              DropdownMenuItem(value: '', child: Text('Semua status')),
+              DropdownMenuItem(value: 'requested', child: Text('Diajukan')),
+              DropdownMenuItem(value: 'assigned', child: Text('Ditugaskan')),
+              DropdownMenuItem(value: 'inProgress', child: Text('Sedang dikerjakan')),
+              DropdownMenuItem(value: 'waitingApproval', child: Text('Menunggu persetujuan')),
+              DropdownMenuItem(value: 'completed', child: Text('Selesai')),
+              DropdownMenuItem(value: 'cancelled', child: Text('Dibatalkan')),
+            ],
+            onChanged: (value) => setState(() => _status = value ?? ''),
+          ),
           const SizedBox(height: 14),
           if (requests.isEmpty)
             const _InfoTile(
@@ -697,6 +743,11 @@ class _RequestCard extends StatelessWidget {
           icon: const Icon(Icons.star_outline, size: 17),
           label: const Text('Beri rating'),
         ));
+        actions.add(OutlinedButton.icon(
+          onPressed: () => _openInvoice(context, provider, request),
+          icon: const Icon(Icons.picture_as_pdf_outlined, size: 17),
+          label: const Text('Invoice PDF'),
+        ));
       }
     }
     if (role == SerfixRole.technician) {
@@ -735,6 +786,58 @@ class _RequestCard extends StatelessWidget {
   Future<void> _openChat(BuildContext context, SerfixProvider provider,
       SerfixRequest request) async {
     await _MessageList._openChat(context, request);
+  }
+
+  Future<void> _openInvoice(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
+    try {
+      final invoice = await provider.getInvoice(request.id);
+      if (invoice == null || !context.mounted) return;
+      await Printing.layoutPdf(
+        name: 'SerFix-Invoice-${request.id}.pdf',
+        onLayout: (_) async {
+          final pdf = pw.Document();
+          final parts = (invoice['parts'] as List? ?? [])
+              .whereType<Map>()
+              .map(Map<String, dynamic>.from)
+              .toList();
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              build: (_) => pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('SERFIX - INVOICE',
+                      style: pw.TextStyle(
+                          fontSize: 22, fontWeight: pw.FontWeight.bold)),
+                  pw.SizedBox(height: 12),
+                  pw.Text('Invoice: SF-${request.id}'),
+                  pw.Text('Pelanggan: ${invoice['customer_name']}'),
+                  pw.Text('Perangkat: ${invoice['device_name']}'),
+                  pw.Text('Layanan: ${invoice['service_name']}'),
+                  pw.SizedBox(height: 16),
+                  ...parts.map((part) => pw.Text(
+                      '- ${part['name']} x${part['quantity']} '
+                      '= Rp${part['unit_price']}')),
+                  pw.SizedBox(height: 16),
+                  pw.Text(
+                    'Total: Rp${invoice['final_amount']}',
+                    style: pw.TextStyle(
+                        fontSize: 16, fontWeight: pw.FontWeight.bold),
+                  ),
+                  pw.SizedBox(height: 24),
+                  pw.Text('Garansi dan rincian teknis tercantum pada sistem SerFix.',
+                      style: const pw.TextStyle(fontSize: 10)),
+                ],
+              ),
+            ),
+          );
+          return pdf.save();
+        },
+      );
+    } catch (error) {
+      if (context.mounted) _message(context, error.toString(), error: true);
+    }
   }
 
   Future<void> _openAttachments(BuildContext context,
@@ -837,8 +940,11 @@ class _RequestCard extends StatelessWidget {
     final scheduled =
         DateTime(date.year, date.month, date.day, time.hour, time.minute);
     try {
-      await provider.rescheduleRequest(request.id, scheduled);
-      if (context.mounted) _message(context, 'Jadwal berhasil diperbarui.');
+      await provider.proposeReschedule(
+          requestId: request.id,
+          scheduledAt: scheduled,
+          reason: 'Pelanggan mengusulkan jadwal baru.');
+      if (context.mounted) _message(context, 'Usulan jadwal dikirim untuk persetujuan.');
     } catch (error) {
       if (context.mounted) _message(context, error.toString(), error: true);
     }
@@ -851,22 +957,66 @@ class _RequestCard extends StatelessWidget {
       if (!context.mounted) return;
       showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
         builder: (_) => SafeArea(
           child: Padding(
             padding: const EdgeInsets.all(18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Lokasi teknisi',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                const SizedBox(height: 12),
-                Text('Status: ${tracking?['status'] ?? 'not_started'}'),
-                Text('ETA: ${tracking?['eta_minutes'] ?? '-'} menit'),
-                Text(tracking?['note']?.toString() ?? ''),
-              ],
-            ),
+            child: Builder(builder: (sheetContext) {
+              final latitude =
+                  double.tryParse('${tracking?['latitude']}');
+              final longitude =
+                  double.tryParse('${tracking?['longitude']}');
+              final position = latitude != null && longitude != null
+                  ? LatLng(latitude, longitude)
+                  : null;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Lokasi teknisi',
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  Text('Status: ${tracking?['status'] ?? 'not_started'}'),
+                  Text('ETA: ${tracking?['eta_minutes'] ?? '-'} menit'),
+                  Text(tracking?['note']?.toString() ?? ''),
+                  if (position != null) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      height: 260,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: position,
+                            initialZoom: 15,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.autolog.app.autolog',
+                            ),
+                            MarkerLayer(markers: [
+                              Marker(
+                                point: position,
+                                width: 38,
+                                height: 38,
+                                child: const Icon(
+                                  Icons.location_pin,
+                                  color: Color(0xFF0F8B80),
+                                  size: 38,
+                                ),
+                              ),
+                            ]),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              );
+            }),
           ),
         ),
       );
@@ -1328,7 +1478,13 @@ class _AccountPage extends StatelessWidget {
           const SizedBox(height: 10),
           _InventoryList(parts: provider.parts),
         ],
+        if (role == SerfixRole.customer) ...[
+          const SizedBox(height: 14),
+          _AssetList(assets: provider.assets, categories: provider.categories),
+        ],
         if (role == SerfixRole.admin || role == SerfixRole.manager) ...[
+          const SizedBox(height: 14),
+          _TechnicianReportList(report: provider.technicianReport),
           const SizedBox(height: 14),
           _PaymentList(payments: provider.payments, canVerify: true),
           const SizedBox(height: 14),
@@ -1355,6 +1511,141 @@ class _AccountPage extends StatelessWidget {
           label: const Text('Keluar'),
         ),
       ],
+    );
+  }
+}
+
+class _AssetList extends StatelessWidget {
+  const _AssetList({required this.assets, required this.categories});
+
+  final List<Map<String, dynamic>> assets;
+  final List<ServiceCategory> categories;
+
+  Future<void> _addAsset(BuildContext context) async {
+    final provider = context.read<SerfixProvider>();
+    final name = TextEditingController();
+    final brand = TextEditingController();
+    final model = TextEditingController();
+    final serial = TextEditingController();
+    int? categoryId;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Tambah aset/ perangkat'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(controller: name, decoration: const InputDecoration(labelText: 'Nama aset')),
+                TextField(controller: brand, decoration: const InputDecoration(labelText: 'Merek')),
+                TextField(controller: model, decoration: const InputDecoration(labelText: 'Model')),
+                TextField(controller: serial, decoration: const InputDecoration(labelText: 'Nomor seri')),
+                DropdownButtonFormField<int>(
+                  initialValue: categoryId,
+                  decoration: const InputDecoration(labelText: 'Kategori layanan'),
+                  items: categories
+                      .map((category) => DropdownMenuItem(
+                          value: category.id, child: Text(category.name)))
+                      .toList(),
+                  onChanged: (value) => setState(() => categoryId = value),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Batal')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Simpan')),
+          ],
+        ),
+      ),
+    );
+    if (result == true && context.mounted) {
+      await _run(context, () => provider.saveAsset(
+            name: name.text.trim(),
+            categoryId: categoryId,
+            brand: brand.text.trim(),
+            model: model.text.trim(),
+            serialNumber: serial.text.trim(),
+          ));
+    }
+    name.dispose();
+    brand.dispose();
+    model.dispose();
+    serial.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(child: _SectionHeading(title: 'Perangkat saya')),
+                IconButton(
+                  tooltip: 'Tambah aset',
+                  onPressed: () => _addAsset(context),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            if (assets.isEmpty)
+              const Text('Belum ada perangkat yang didaftarkan.')
+            else
+              ...assets.map((asset) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.devices_outlined),
+                    title: Text(asset['name']?.toString() ?? ''),
+                    subtitle: Text(
+                        '${asset['brand'] ?? ''} ${asset['model'] ?? ''} · '
+                        'Layanan berikutnya: ${asset['next_service_at'] ?? 'belum dijadwalkan'}'),
+                  )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TechnicianReportList extends StatelessWidget {
+  const _TechnicianReportList({required this.report});
+
+  final List<Map<String, dynamic>> report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const _SectionHeading(title: 'Performa teknisi'),
+            if (report.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text('Belum ada data performa teknisi.'),
+              )
+            else
+              ...report.map((item) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.engineering_outlined),
+                    title: Text(item['name']?.toString() ?? ''),
+                    subtitle: Text(
+                        '${item['completed_jobs']} servis · '
+                        'Rating ${(double.tryParse('${item['average_rating']}') ?? 0).toStringAsFixed(1)}'),
+                    trailing: Text(
+                      _money(double.tryParse('${item['revenue']}') ?? 0),
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  )),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2128,14 +2419,44 @@ Future<void> _pay(
     ),
   );
   if (result == true && context.mounted) {
-    if (reference.text.trim().isEmpty && method == 'qr') {
-      reference.text =
-          'QRIS-${DateTime.now().millisecondsSinceEpoch}-${request.id}';
+    if (method == 'qr') {
+      await _run(context, () async {
+        final transaction =
+            await provider.createGatewayPayment(request.id, 'qris');
+        if (context.mounted) {
+          showDialog<void>(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('Pembayaran QRIS'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Referensi: ${transaction['gateway_reference']}'),
+                  Text('Jumlah: ${_money((transaction['amount'] as num?)?.toDouble() ?? 0)}'),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Gateway siap menerima webhook pembayaran. Sambungkan provider QRIS nyata pada konfigurasi backend sebelum produksi.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Tutup'),
+                ),
+              ],
+            ),
+          );
+        }
+      });
+    } else {
+      await _run(
+        context,
+        () => provider.createPayment(request.id, method, reference.text.trim()),
+      );
     }
-    await _run(
-      context,
-      () => provider.createPayment(request.id, method, reference.text.trim()),
-    );
   }
   reference.dispose();
 }

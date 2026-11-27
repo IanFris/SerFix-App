@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../models/serfix_models.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../services/session_service.dart';
 
 export '../models/serfix_models.dart';
 
@@ -16,6 +17,8 @@ class SerfixProvider extends ChangeNotifier {
   List<Map<String, dynamic>> _payments = [];
   List<Map<String, dynamic>> _staff = [];
   List<Map<String, dynamic>> _notifications = [];
+  List<Map<String, dynamic>> _assets = [];
+  List<Map<String, dynamic>> _technicianReport = [];
   Map<String, dynamic> _summary = {};
   bool _isLoading = false;
   String? _errorMessage;
@@ -35,6 +38,9 @@ class SerfixProvider extends ChangeNotifier {
   List<Map<String, dynamic>> get staff => List.unmodifiable(_staff);
   List<Map<String, dynamic>> get notifications =>
       List.unmodifiable(_notifications);
+  List<Map<String, dynamic>> get assets => List.unmodifiable(_assets);
+  List<Map<String, dynamic>> get technicianReport =>
+      List.unmodifiable(_technicianReport);
   Map<String, dynamic> get summary => Map.unmodifiable(_summary);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -75,9 +81,51 @@ class SerfixProvider extends ChangeNotifier {
         _parts = await ApiService.getParts();
       } else {
         _warranties = await ApiService.getWarranties();
+        _assets = await ApiService.getAssets();
       }
+      if (role == SerfixRole.admin || role == SerfixRole.manager) {
+        _technicianReport = await ApiService.getTechnicianReport();
+      }
+      await SessionService.saveSerfixCache({
+        'requests': _requests.map((item) => item.toJson()).toList(),
+        'categories': _categories.map((item) => item.toJson()).toList(),
+        'summary': _summary,
+        'notifications': _notifications,
+        'assets': _assets,
+        'technicianReport': _technicianReport,
+      });
     } catch (error) {
-      _errorMessage = error.toString();
+      final cached = await SessionService.getSerfixCache();
+      if (cached != null) {
+        _requests = (cached['requests'] as List? ?? [])
+            .whereType<Map>()
+            .map((item) => SerfixRequest.fromJson(
+                Map<String, dynamic>.from(item)))
+            .toList();
+        _categories = (cached['categories'] as List? ?? [])
+            .whereType<Map>()
+            .map((item) => ServiceCategory.fromJson(
+                Map<String, dynamic>.from(item)))
+            .toList();
+        _summary = Map<String, dynamic>.from(cached['summary'] as Map? ?? {});
+        _notifications =
+            (cached['notifications'] as List? ?? [])
+                .whereType<Map>()
+                .map(Map<String, dynamic>.from)
+                .toList();
+        _assets = (cached['assets'] as List? ?? [])
+            .whereType<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList();
+        _technicianReport =
+            (cached['technicianReport'] as List? ?? [])
+                .whereType<Map>()
+                .map(Map<String, dynamic>.from)
+                .toList();
+        _errorMessage = 'Mode offline: menampilkan data terakhir yang tersimpan.';
+      } else {
+        _errorMessage = error.toString();
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -290,4 +338,75 @@ class SerfixProvider extends ChangeNotifier {
     );
     await refresh();
   }
+
+  Future<Map<String, dynamic>> createGatewayPayment(
+          int requestId, String provider) =>
+      ApiService.createGatewayPayment(requestId, provider);
+
+  Future<void> registerPushDevice(String token, String platform) =>
+      ApiService.registerPushDevice(token, platform);
+
+  Future<List<Map<String, dynamic>>> getAssets() =>
+      ApiService.getAssets();
+
+  Future<void> saveAsset({
+    required String name,
+    int? categoryId,
+    String brand = '',
+    String model = '',
+    String serialNumber = '',
+    String nextServiceAt = '',
+    String notes = '',
+  }) async {
+    await ApiService.saveAsset(
+      name: name,
+      categoryId: categoryId,
+      brand: brand,
+      model: model,
+      serialNumber: serialNumber,
+      nextServiceAt: nextServiceAt,
+      notes: notes,
+    );
+    await refresh();
+  }
+
+  Future<Map<String, dynamic>?> getInvoice(int requestId) =>
+      ApiService.getInvoice(requestId);
+
+  Future<List<Map<String, dynamic>>> getReschedules(int requestId) =>
+      ApiService.getReschedules(requestId);
+
+  Future<void> proposeReschedule({
+    required int requestId,
+    required DateTime scheduledAt,
+    String reason = '',
+  }) =>
+      ApiService.proposeReschedule(
+          requestId: requestId, scheduledAt: scheduledAt, reason: reason);
+
+  Future<void> respondReschedule({
+    required int requestId,
+    required int proposalId,
+    required String decision,
+  }) =>
+      ApiService.respondReschedule(
+          requestId: requestId, proposalId: proposalId, decision: decision);
+
+  Future<void> syncOfflineMutations(
+      List<Map<String, dynamic>> mutations) async {
+    await ApiService.syncOfflineMutations(mutations);
+    await SessionService.clearSerfixMutations();
+  }
+
+  Future<List<SerfixRequest>> searchRequests({
+    String? status,
+    int? categoryId,
+    String? area,
+    String? search,
+  }) =>
+      ApiService.getServiceRequests(
+          status: status,
+          categoryId: categoryId,
+          area: area,
+          search: search);
 }

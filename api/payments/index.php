@@ -105,6 +105,67 @@ if ($action === 'create' && $user['role'] === 'customer') {
     }
 }
 
+if ($action === 'gateway_create' && $user['role'] === 'customer') {
+    $requestId = filter_var($input['request_id'] ?? null, FILTER_VALIDATE_INT);
+    $provider = mb_substr(trim((string)($input['provider'] ?? 'qris')), 0, 60);
+    if ($requestId === false || $requestId === null || $requestId < 1) {
+        sendResponse('error', 'ID pengajuan pembayaran tidak valid.', null, 400);
+    }
+    $db->beginTransaction();
+    try {
+        $request = $db->prepare('SELECT final_amount FROM service_requests
+                                 WHERE id = :id AND customer_id = :customer_id
+                                   AND status = "completed" FOR UPDATE');
+        $request->execute([':id' => $requestId, ':customer_id' => $user['id']]);
+        $amount = $request->fetchColumn();
+        if ($amount === false) {
+            $db->rollBack();
+            sendResponse('error', 'Payment gateway hanya tersedia untuk servis selesai milik Anda.', null, 404);
+        }
+        $existing = $db->prepare('SELECT status FROM payments
+                                  WHERE service_request_id = :request_id
+                                  ORDER BY id DESC LIMIT 1');
+        $existing->execute([':request_id' => $requestId]);
+        if (in_array($existing->fetchColumn(), ['pending', 'paid'], true)) {
+            $db->rollBack();
+            sendResponse('error', 'Pembayaran untuk servis ini masih aktif atau sudah lunas.', null, 409);
+        }
+        $db->prepare('INSERT INTO payments
+                      (service_request_id, customer_id, amount, method, status, reference)
+                      VALUES (:request_id, :customer_id, :amount, "qr", "pending", :reference)')
+           ->execute([
+               ':request_id' => $requestId,
+               ':customer_id' => $user['id'],
+               ':amount' => $amount,
+               ':reference' => 'gateway-' . $requestId . '-' . time(),
+           ]);
+        $paymentId = (int)$db->lastInsertId();
+        $gatewayReference = 'SF-' . $paymentId . '-' . bin2hex(random_bytes(8));
+        $checkoutUrl = '';
+        $db->prepare('INSERT INTO payment_gateway_transactions
+                      (payment_id, provider, gateway_reference, checkout_url, raw_status)
+                      VALUES (:payment_id, :provider, :reference, :checkout, "pending")')
+           ->execute([
+               ':payment_id' => $paymentId,
+               ':provider' => $provider,
+               ':reference' => $gatewayReference,
+               ':checkout' => $checkoutUrl,
+           ]);
+        $db->commit();
+        sendResponse('success', 'Transaksi payment gateway dibuat.', [
+            'payment_id' => $paymentId,
+            'gateway_reference' => $gatewayReference,
+            'provider' => $provider,
+            'amount' => (float)$amount,
+            'status' => 'pending',
+        ], 201);
+    } catch (Throwable $exception) {
+        if ($db->inTransaction()) $db->rollBack();
+        error_log('SerFix gateway create: ' . $exception->getMessage());
+        sendResponse('error', 'Pembuatan transaksi gateway gagal.', null, 500);
+    }
+}
+
 if ($action === 'verify' && in_array($user['role'], ['admin', 'manager'], true)) {
     $paymentId = filter_var($input['payment_id'] ?? null, FILTER_VALIDATE_INT);
     $decision = $input['decision'] ?? '';

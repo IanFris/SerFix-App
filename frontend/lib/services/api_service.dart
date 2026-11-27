@@ -131,10 +131,22 @@ class ApiService {
           .map(ServiceCategory.fromJson)
           .toList();
 
-  static Future<List<SerfixRequest>> getServiceRequests() async =>
-      _mapList(await _getData(ApiConstants.serviceRequests))
+  static Future<List<SerfixRequest>> getServiceRequests({
+    String? status,
+    int? categoryId,
+    String? area,
+    String? search,
+  }) async {
+    final uri = Uri.parse(ApiConstants.serviceRequests).replace(queryParameters: {
+      if (status != null && status.isNotEmpty) 'status': status,
+      if (categoryId != null) 'category_id': '$categoryId',
+      if (area != null && area.isNotEmpty) 'area': area,
+      if (search != null && search.isNotEmpty) 'search': search,
+    });
+    return _mapList(await _getData(uri.toString()))
           .map(SerfixRequest.fromJson)
           .toList();
+  }
 
   static Future<Map<String, dynamic>> getDashboardSummary() async {
     final data = await _getData(ApiConstants.summary);
@@ -393,4 +405,91 @@ class ApiService {
         'rating': rating,
         'review': review,
       });
+
+  static Future<Map<String, dynamic>> createGatewayPayment(
+    int requestId,
+    String provider,
+  ) async {
+    final data = await _postData(ApiConstants.payments, {
+      'action': 'gateway_create',
+      'request_id': requestId,
+      'provider': provider,
+    });
+    return data is Map ? Map<String, dynamic>.from(data) : {};
+  }
+
+  static Future<void> registerPushDevice(String token, String platform) =>
+      _postData(ApiConstants.enhancements, {
+        'action': 'register_push',
+        'token': token,
+        'platform': platform,
+      });
+
+  static Future<List<Map<String, dynamic>>> getAssets() async =>
+      _mapList(await _getData('${ApiConstants.enhancements}?action=assets'));
+
+  static Future<void> saveAsset({
+    required String name,
+    int? categoryId,
+    String brand = '',
+    String model = '',
+    String serialNumber = '',
+    String nextServiceAt = '',
+    String notes = '',
+  }) =>
+      _postData(ApiConstants.enhancements, {
+        'action': 'asset',
+        'name': name,
+        if (categoryId != null) 'category_id': categoryId,
+        'brand': brand,
+        'model': model,
+        'serial_number': serialNumber,
+        'next_service_at': nextServiceAt,
+        'notes': notes,
+      });
+
+  static Future<Map<String, dynamic>?> getInvoice(int requestId) async {
+    final data = await _getData(
+        '${ApiConstants.enhancements}?action=invoice&request_id=$requestId');
+    return data is Map ? Map<String, dynamic>.from(data) : null;
+  }
+
+  static Future<List<Map<String, dynamic>>> getReschedules(
+          int requestId) async =>
+      _mapList(await _getData(
+          '${ApiConstants.enhancements}?action=reschedules&request_id=$requestId'));
+
+  static Future<void> proposeReschedule({
+    required int requestId,
+    required DateTime scheduledAt,
+    String reason = '',
+  }) =>
+      _postData(ApiConstants.enhancements, {
+        'action': 'propose_reschedule',
+        'request_id': requestId,
+        'scheduled_at': scheduledAt.toIso8601String(),
+        'reason': reason,
+      });
+
+  static Future<void> respondReschedule({
+    required int requestId,
+    required int proposalId,
+    required String decision,
+  }) =>
+      _postData(ApiConstants.enhancements, {
+        'action': 'respond_reschedule',
+        'request_id': requestId,
+        'proposal_id': proposalId,
+        'decision': decision,
+      });
+
+  static Future<List<Map<String, dynamic>>> getTechnicianReport() async =>
+      _mapList(await _getData(
+          '${ApiConstants.enhancements}?action=technician_report'));
+
+  static Future<Map<String, dynamic>> syncOfflineMutations(
+          List<Map<String, dynamic>> mutations) async =>
+      Map<String, dynamic>.from(await _postData(
+          ApiConstants.enhancements,
+          {'action': 'offline_sync', 'mutations': mutations}));
 }

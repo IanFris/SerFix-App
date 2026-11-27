@@ -76,6 +76,15 @@ class ServiceCategory {
         durationMinutes: _intOr(json['default_duration_minutes'], 120),
         warrantyMonths: _intOr(json['warranty_months'], 0),
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'description': description,
+        'base_fee': baseFee,
+        'default_duration_minutes': durationMinutes,
+        'warranty_months': warrantyMonths,
+      };
 }
 
 class SerfixTechnician {
@@ -229,4 +238,38 @@ class SerfixRequest {
       estimateApproved: json['estimate_approved_at'] != null,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'customer_id': customerId,
+        'customer_name': customerName,
+        'category_id': categoryId,
+        'service_name': service,
+        'device_name': device,
+        'issue_description': issue,
+        'service_address': address,
+        'service_area': area,
+        'requested_at': scheduledAt.toIso8601String(),
+        'duration_minutes': durationMinutes,
+        'status': switch (status) {
+          ServiceRequestStatus.assigned => 'assigned',
+          ServiceRequestStatus.inProgress => 'in_progress',
+          ServiceRequestStatus.waitingApproval => 'waiting_approval',
+          ServiceRequestStatus.completed => 'completed',
+          ServiceRequestStatus.cancelled => 'cancelled',
+          _ => 'requested',
+        },
+        'estimate_amount': estimate,
+        'final_amount': finalAmount,
+        'payment_status': paymentStatus,
+        'technician_name': technicianName,
+        'technician_id': technicianId,
+        'diagnosis': diagnosis,
+        'work_description': workDescription,
+        'technician_notes': technicianNotes,
+        'parts': parts,
+        'warranty_months': warrantyMonths,
+        'warranty_ends_at': warrantyEndsAt?.toIso8601String(),
+        'estimate_approved_at': estimateApproved ? scheduledAt.toIso8601String() : null,
+      };
 }

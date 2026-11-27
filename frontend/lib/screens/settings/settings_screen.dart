@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/serfix_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../services/session_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -85,6 +87,75 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _registerPushDevice(BuildContext context) async {
+    final controller = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Daftarkan perangkat push'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Push/FCM token',
+            hintText: 'Tempel token perangkat',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, controller.text),
+            child: const Text('Daftar'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || result.trim().isEmpty || !context.mounted) return;
+    try {
+      await context.read<SerfixProvider>().registerPushDevice(
+          result.trim(), Theme.of(context).platform.name);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perangkat push berhasil didaftarkan.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
+
+  Future<void> _syncOffline(BuildContext context) async {
+    final mutations = await SessionService.getSerfixMutations();
+    if (!context.mounted) return;
+    if (mutations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak ada perubahan offline untuk sinkronisasi.')),
+      );
+      return;
+    }
+    try {
+      await context.read<SerfixProvider>().syncOfflineMutations(mutations);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Perubahan offline berhasil disinkronkan.')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<SettingsProvider>();
@@ -131,6 +202,28 @@ class SettingsScreen extends StatelessWidget {
                 onSelectionChanged: (value) =>
                     settings.setThemeMode(value.single),
               ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text('Sinkronisasi dan push',
+              style: Theme.of(context).textTheme.titleMedium),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: const Text('Daftarkan perangkat push'),
+                  subtitle: const Text('Tambahkan token FCM/APNs dari provider push.'),
+                  onTap: () => _registerPushDevice(context),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.sync),
+                  title: const Text('Sinkronkan data offline'),
+                  subtitle: const Text('Unggah perubahan yang masih antre.'),
+                  onTap: () => _syncOffline(context),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 18),

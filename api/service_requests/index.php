@@ -92,6 +92,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $conditions[] = 'sr.id = :request_id';
         $params[':request_id'] = $requestId;
     }
+    $status = trim((string)($_GET['status'] ?? ''));
+    if ($status !== '') {
+        $allowedStatuses = ['requested','assigned','in_progress','waiting_approval','completed','cancelled'];
+        if (in_array($status, $allowedStatuses, true)) {
+            $conditions[] = 'sr.status = :status';
+            $params[':status'] = $status;
+        }
+    }
+    $categoryId = filter_input(INPUT_GET, 'category_id', FILTER_VALIDATE_INT);
+    if ($categoryId !== false && $categoryId !== null) {
+        $conditions[] = 'sr.category_id = :category_id';
+        $params[':category_id'] = $categoryId;
+    }
+    $area = trim((string)($_GET['area'] ?? ''));
+    if ($area !== '') {
+        $conditions[] = 'LOWER(sr.service_area) LIKE LOWER(:area)';
+        $params[':area'] = '%' . $area . '%';
+    }
+    $search = trim((string)($_GET['search'] ?? ''));
+    if ($search !== '') {
+        $conditions[] = '(LOWER(sr.device_name) LIKE LOWER(:search)
+                          OR LOWER(sr.issue_description) LIKE LOWER(:search)
+                          OR LOWER(customer.name) LIKE LOWER(:search)
+                          OR CAST(sr.id AS CHAR) LIKE :search)';
+        $params[':search'] = '%' . $search . '%';
+    }
     if ($conditions !== []) {
         $sql .= ' WHERE ' . implode(' AND ', $conditions);
     }
