@@ -337,6 +337,7 @@ class SerfixProvider extends ChangeNotifier {
     required int stock,
     required double unitPrice,
     String description = '',
+    int minimumStock = 3,
   }) async {
     await ApiService.savePart(
       id: id,
@@ -345,6 +346,7 @@ class SerfixProvider extends ChangeNotifier {
       stock: stock,
       unitPrice: unitPrice,
       description: description,
+      minimumStock: minimumStock,
     );
     await refresh();
   }
@@ -405,6 +407,61 @@ class SerfixProvider extends ChangeNotifier {
       List<Map<String, dynamic>> mutations) async {
     await ApiService.syncOfflineMutations(mutations);
     await SessionService.clearSerfixMutations();
+  }
+
+  Future<void> requestPasswordOtp(String email) =>
+      ApiService.requestPasswordOtp(email);
+
+  Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) =>
+      ApiService.resetPassword(
+          email: email, otp: otp, password: password);
+
+  Future<List<Map<String, dynamic>>> getServiceAreas() =>
+      ApiService.getServiceAreas();
+
+  Future<void> saveServiceArea({
+    int? id,
+    required String name,
+    required int radiusKm,
+    required double travelFee,
+    required String openingTime,
+    required String closingTime,
+    required String operatingDays,
+  }) =>
+      ApiService.saveServiceArea(
+        id: id,
+        name: name,
+        radiusKm: radiusKm,
+        travelFee: travelFee,
+        openingTime: openingTime,
+        closingTime: closingTime,
+        operatingDays: operatingDays,
+      );
+
+  Future<List<Map<String, dynamic>>> getStockTransactions() =>
+      ApiService.getStockTransactions();
+
+  Future<void> adjustStock({
+    required int partId,
+    required String type,
+    required int quantity,
+    required double unitCost,
+    String reference = '',
+    String notes = '',
+  }) async {
+    await ApiService.adjustStock(
+      partId: partId,
+      type: type,
+      quantity: quantity,
+      unitCost: unitCost,
+      reference: reference,
+      notes: notes,
+    );
+    await refresh();
   }
 
   Future<List<SerfixRequest>> searchRequests({

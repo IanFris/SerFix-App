@@ -313,12 +313,14 @@ class ApiService {
     required int stock,
     required double unitPrice,
     String description = '',
+    int minimumStock = 3,
   }) async {
     await _postData(ApiConstants.parts, {
       if (id != null) 'id': id,
       'sku': sku,
       'name': name,
       'stock_quantity': stock,
+      'minimum_stock': minimumStock,
       'unit_price': unitPrice,
       'description': description,
     });
@@ -492,4 +494,59 @@ class ApiService {
       Map<String, dynamic>.from(await _postData(
           ApiConstants.enhancements,
           {'action': 'offline_sync', 'mutations': mutations}));
+
+  static Future<void> requestPasswordOtp(String email) =>
+      _postData(ApiConstants.password,
+          {'action': 'request', 'email': email});
+
+  static Future<void> resetPassword({
+    required String email,
+    required String otp,
+    required String password,
+  }) =>
+      _postData(ApiConstants.password,
+          {'action': 'reset', 'email': email, 'otp': otp, 'password': password});
+
+  static Future<List<Map<String, dynamic>>> getServiceAreas() async =>
+      _mapList(await _getData(ApiConstants.areas));
+
+  static Future<void> saveServiceArea({
+    int? id,
+    required String name,
+    required int radiusKm,
+    required double travelFee,
+    required String openingTime,
+    required String closingTime,
+    required String operatingDays,
+  }) =>
+      _postData(ApiConstants.areas, {
+        if (id != null) 'id': id,
+        'name': name,
+        'radius_km': radiusKm,
+        'travel_fee': travelFee,
+        'opening_time': openingTime,
+        'closing_time': closingTime,
+        'operating_days': operatingDays,
+      });
+
+  static Future<List<Map<String, dynamic>>> getStockTransactions() async =>
+      _mapList(await _getData('${ApiConstants.parts}?action=transactions'));
+
+  static Future<void> adjustStock({
+    required int partId,
+    required String type,
+    required int quantity,
+    required double unitCost,
+    String reference = '',
+    String notes = '',
+  }) =>
+      _postData(ApiConstants.parts, {
+        'action': 'stock_adjust',
+        'part_id': partId,
+        'type': type,
+        'quantity': quantity,
+        'unit_cost': unitCost,
+        'reference': reference,
+        'notes': notes,
+      });
 }

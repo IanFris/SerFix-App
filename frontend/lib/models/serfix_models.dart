@@ -123,6 +123,7 @@ class SerfixPart {
     required this.name,
     required this.stock,
     required this.unitPrice,
+    this.minimumStock = 3,
   });
 
   final int id;
@@ -130,6 +131,7 @@ class SerfixPart {
   final String name;
   final int stock;
   final double unitPrice;
+  final int minimumStock;
 
   factory SerfixPart.fromJson(Map<String, dynamic> json) => SerfixPart(
         id: _requiredInt(json['id'], 'id'),
@@ -137,6 +139,7 @@ class SerfixPart {
         name: json['name'] as String? ?? '',
         stock: _intOr(json['stock_quantity'], 0),
         unitPrice: _doubleOr(json['unit_price'], 0),
+        minimumStock: _intOr(json['minimum_stock'], 3),
       );
 }
 

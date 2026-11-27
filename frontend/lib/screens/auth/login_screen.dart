@@ -4,6 +4,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/serfix_provider.dart';
 import '../../widgets/serfix_components.dart';
 import 'register_screen.dart';
 
@@ -42,6 +43,91 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Text(auth.errorMessage ?? 'Login gagal.'),
           backgroundColor: AppColors.error,
         ),
+      );
+    }
+  }
+
+  Future<void> _forgotPassword() async {
+    final emailController =
+        TextEditingController(text: _emailController.text.trim());
+    final otpController = TextEditingController();
+    final passwordController = TextEditingController();
+    var otpRequested = false;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Reset password'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: 'Email'),
+                ),
+                if (otpRequested) ...[
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: otpController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Kode OTP 6 digit'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration:
+                        const InputDecoration(labelText: 'Password baru'),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                try {
+                  final provider = dialogContext.read<SerfixProvider>();
+                  if (!otpRequested) {
+                    await provider.requestPasswordOtp(emailController.text.trim());
+                    setDialogState(() => otpRequested = true);
+                  } else {
+                    await provider.resetPassword(
+                      email: emailController.text.trim(),
+                      otp: otpController.text.trim(),
+                      password: passwordController.text,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext, true);
+                    }
+                  }
+                } catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(error.toString())),
+                    );
+                  }
+                }
+              },
+              child: Text(otpRequested ? 'Reset password' : 'Kirim OTP'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailController.dispose();
+    otpController.dispose();
+    passwordController.dispose();
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Password berhasil diperbarui.')),
       );
     }
   }
@@ -298,7 +384,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: AppSpacing.x4),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _forgotPassword,
+                                child: const Text('Lupa password?'),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
                             SerfixPrimaryButton(
                               label: 'Masuk',
                               icon: Icons.arrow_forward_rounded,

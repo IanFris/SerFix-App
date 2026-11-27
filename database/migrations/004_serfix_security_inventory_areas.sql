@@ -1,0 +1,56 @@
+USE `serfix_db`;
+
+ALTER TABLE `parts`
+  ADD COLUMN `minimum_stock` INT UNSIGNED NOT NULL DEFAULT 3;
+
+CREATE TABLE IF NOT EXISTS `password_reset_otps` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT UNSIGNED NOT NULL,
+  `otp_hash` CHAR(64) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `attempts` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  `used_at` DATETIME NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_password_otp_user_expiry` (`user_id`, `expires_at`),
+  CONSTRAINT `fk_password_otp_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `service_areas` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(120) NOT NULL UNIQUE,
+  `radius_km` SMALLINT UNSIGNED NOT NULL DEFAULT 10,
+  `travel_fee` DECIMAL(12,2) UNSIGNED NOT NULL DEFAULT 0,
+  `opening_time` TIME NOT NULL DEFAULT '08:00:00',
+  `closing_time` TIME NOT NULL DEFAULT '17:00:00',
+  `operating_days` VARCHAR(100) NOT NULL DEFAULT 'Senin,Selasa,Rabu,Kamis,Jumat,Sabtu',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(150) NOT NULL,
+  `phone` VARCHAR(30) NOT NULL DEFAULT '',
+  `email` VARCHAR(150) NOT NULL DEFAULT '',
+  `address` VARCHAR(500) NOT NULL DEFAULT '',
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `stock_transactions` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `part_id` INT UNSIGNED NOT NULL,
+  `supplier_id` INT UNSIGNED NULL,
+  `actor_id` INT UNSIGNED NULL,
+  `type` ENUM('in','out','adjustment','return') NOT NULL,
+  `quantity` INT UNSIGNED NOT NULL,
+  `unit_cost` DECIMAL(12,2) UNSIGNED NOT NULL DEFAULT 0,
+  `reference` VARCHAR(150) NOT NULL DEFAULT '',
+  `notes` VARCHAR(500) NOT NULL DEFAULT '',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY `idx_stock_part_created` (`part_id`, `created_at`),
+  CONSTRAINT `fk_stock_part` FOREIGN KEY (`part_id`) REFERENCES `parts` (`id`) ON DELETE RESTRICT,
+  CONSTRAINT `fk_stock_supplier` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `fk_stock_actor` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

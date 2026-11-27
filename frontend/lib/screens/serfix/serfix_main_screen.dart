@@ -11,6 +11,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
@@ -2308,6 +2309,10 @@ class _AccountPage extends StatelessWidget {
           ),
           if (role == SerfixRole.admin) ...[
             const SizedBox(height: AppSpacing.x4),
+            const _AreaManagementList(),
+          ],
+          if (role == SerfixRole.admin) ...[
+            const SizedBox(height: AppSpacing.x4),
             _StaffList(staff: provider.staff, categories: provider.categories),
           ],
         ],
@@ -2326,6 +2331,162 @@ class _AccountPage extends StatelessWidget {
           label: const Text('Keluar'),
         ),
       ],
+    );
+  }
+}
+
+class _AreaManagementList extends StatefulWidget {
+  const _AreaManagementList();
+
+  @override
+  State<_AreaManagementList> createState() => _AreaManagementListState();
+}
+
+class _AreaManagementListState extends State<_AreaManagementList> {
+  List<Map<String, dynamic>> _areas = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    try {
+      final areas = await context.read<SerfixProvider>().getServiceAreas();
+      if (mounted) setState(() => _areas = areas);
+    } catch (error) {
+      if (mounted) _message(context, error.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _edit({Map<String, dynamic>? area}) async {
+    final name = TextEditingController(text: area?['name']?.toString() ?? '');
+    final radius = TextEditingController(
+        text: area?['radius_km']?.toString() ?? '10');
+    final fee = TextEditingController(
+        text: area?['travel_fee']?.toString() ?? '0');
+    final opening =
+        TextEditingController(text: area?['opening_time']?.toString() ?? '08:00');
+    final closing =
+        TextEditingController(text: area?['closing_time']?.toString() ?? '17:00');
+    final days = TextEditingController(
+        text: area?['operating_days']?.toString() ?? 'Senin-Sabtu');
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(area == null ? 'Tambah area' : 'Ubah area'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                  controller: name,
+                  decoration:
+                      const InputDecoration(labelText: 'Nama kota/area')),
+              TextField(
+                  controller: radius,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      const InputDecoration(labelText: 'Radius layanan (km)')),
+              TextField(
+                  controller: fee,
+                  keyboardType: TextInputType.number,
+                  decoration:
+                      const InputDecoration(labelText: 'Biaya perjalanan')),
+              TextField(
+                  controller: opening,
+                  decoration:
+                      const InputDecoration(labelText: 'Jam buka (HH:mm)')),
+              TextField(
+                  controller: closing,
+                  decoration:
+                      const InputDecoration(labelText: 'Jam tutup (HH:mm)')),
+              TextField(
+                  controller: days,
+                  decoration:
+                      const InputDecoration(labelText: 'Hari operasional')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Simpan')),
+        ],
+      ),
+    );
+    if (saved == true && mounted) {
+      final radiusKm = int.tryParse(radius.text);
+      final travelFee = double.tryParse(fee.text);
+      if (name.text.trim().isEmpty || radiusKm == null || travelFee == null) {
+        _message(context, 'Data area tidak valid.', error: true);
+      } else {
+        await _run(
+          context,
+          () => context.read<SerfixProvider>().saveServiceArea(
+                id: area == null ? null : (area['id'] as num).toInt(),
+                name: name.text.trim(),
+                radiusKm: radiusKm,
+                travelFee: travelFee,
+                openingTime: opening.text.trim(),
+                closingTime: closing.text.trim(),
+                operatingDays: days.text.trim(),
+              ),
+        );
+        await _load();
+      }
+    }
+    name.dispose();
+    radius.dispose();
+    fee.dispose();
+    opening.dispose();
+    closing.dispose();
+    days.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                    child: _SectionHeading(title: 'Area layanan')),
+                IconButton(
+                    tooltip: 'Tambah area',
+                    onPressed: () => _edit(),
+                    icon: const Icon(Icons.add_location_alt_outlined)),
+              ],
+            ),
+            if (_loading)
+              const LinearProgressIndicator()
+            else if (_areas.isEmpty)
+              const Text('Belum ada area layanan.')
+            else
+              ..._areas.map((area) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.location_on_outlined),
+                    title: Text(area['name']?.toString() ?? ''),
+                    subtitle: Text(
+                        '${area['radius_km']} km · ${area['opening_time']}–${area['closing_time']} · ${area['operating_days']}'),
+                    trailing: Text(_money(
+                        double.tryParse('${area['travel_fee']}') ?? 0)),
+                    onTap: () => _edit(area: area),
+                  )),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2432,7 +2593,33 @@ class _AssetList extends StatelessWidget {
                     title: Text(asset['name']?.toString() ?? ''),
                     subtitle: Text(
                         '${asset['brand'] ?? ''} ${asset['model'] ?? ''} · '
+                        'Nomor seri: ${asset['serial_number']?.toString().isNotEmpty == true ? asset['serial_number'] : '-'} · '
                         'Layanan berikutnya: ${asset['next_service_at'] ?? 'belum dijadwalkan'}'),
+                    trailing: IconButton(
+                      tooltip: 'Tampilkan QR aset',
+                      icon: const Icon(Icons.qr_code_2),
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => AlertDialog(
+                          title: Text(asset['name']?.toString() ?? 'QR aset'),
+                          content: SizedBox(
+                            width: 220,
+                            height: 220,
+                            child: QrImageView(
+                              data:
+                                  'SERFIX-ASSET-${asset['id']}-${asset['serial_number'] ?? ''}',
+                              size: 220,
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Tutup'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   )),
           ],
         ),
@@ -2551,10 +2738,20 @@ class _InventoryList extends StatelessWidget {
               children: [
                 const Expanded(child: _SectionHeading(title: 'Stok sparepart')),
                 if (canEdit)
-                  IconButton(
-                    tooltip: 'Tambah sparepart',
-                    onPressed: () => _editPart(context),
-                    icon: const Icon(Icons.add),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Riwayat dan transaksi stok',
+                        onPressed: () => _openStockTransactions(context),
+                        icon: const Icon(Icons.receipt_long_outlined),
+                      ),
+                      IconButton(
+                        tooltip: 'Tambah sparepart',
+                        onPressed: () => _editPart(context),
+                        icon: const Icon(Icons.add),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -2570,7 +2767,9 @@ class _InventoryList extends StatelessWidget {
                       '${part.stock} unit',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: part.stock <= 3 ? Colors.deepOrange : null,
+                        color: part.stock <= part.minimumStock
+                            ? Colors.deepOrange
+                            : null,
                       ),
                     ),
                     onTap:
@@ -3708,11 +3907,171 @@ Future<void> _claimWarranty(
   description.dispose();
 }
 
+Future<void> _openStockTransactions(BuildContext context) async {
+  final provider = context.read<SerfixProvider>();
+  final transactions = await provider.getStockTransactions();
+  if (!context.mounted) return;
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (sheetContext) => StatefulBuilder(
+      builder: (sheetContext, setSheetState) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.x4),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 620),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                        child: _SectionHeading(
+                            title: 'Transaksi dan riwayat stok')),
+                    IconButton(
+                      tooltip: 'Catat transaksi',
+                      onPressed: () async {
+                        await _recordStockTransaction(sheetContext, provider);
+                        final updated =
+                            await provider.getStockTransactions();
+                        setSheetState(() => transactions
+                          ..clear()
+                          ..addAll(updated));
+                      },
+                      icon: const Icon(Icons.add_circle_outline),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (transactions.isEmpty)
+                  const Text('Belum ada transaksi stok.')
+                else
+                  Expanded(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: transactions
+                          .map((item) => ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: const Icon(Icons.swap_horiz),
+                                title: Text(
+                                    item['part_name']?.toString() ?? 'Sparepart'),
+                                subtitle: Text(
+                                    '${item['type']} · ${item['quantity']} unit · ${item['notes'] ?? ''}'),
+                                trailing: Text(
+                                    item['created_at']?.toString() ?? ''),
+                              ))
+                          .toList(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _recordStockTransaction(
+    BuildContext context, SerfixProvider provider) async {
+  int? partId;
+  String type = 'in';
+  final quantity = TextEditingController(text: '1');
+  final cost = TextEditingController(text: '0');
+  final reference = TextEditingController();
+  final notes = TextEditingController();
+  final saved = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: const Text('Catat transaksi stok'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<int>(
+                initialValue: partId,
+                decoration:
+                    const InputDecoration(labelText: 'Sparepart'),
+                items: provider.parts
+                    .map((part) => DropdownMenuItem(
+                        value: part.id, child: Text(part.name)))
+                    .toList(),
+                onChanged: (value) => setState(() => partId = value),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: type,
+                decoration: const InputDecoration(labelText: 'Jenis'),
+                items: const [
+                  DropdownMenuItem(value: 'in', child: Text('Masuk')),
+                  DropdownMenuItem(value: 'out', child: Text('Keluar')),
+                  DropdownMenuItem(value: 'adjustment', child: Text('Penyesuaian')),
+                  DropdownMenuItem(value: 'return', child: Text('Retur')),
+                ],
+                onChanged: (value) => setState(() => type = value!),
+              ),
+              TextField(
+                  controller: quantity,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Jumlah / stok baru')),
+              TextField(
+                  controller: cost,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Nilai satuan')),
+              TextField(
+                  controller: reference,
+                  decoration: const InputDecoration(labelText: 'Referensi')),
+              TextField(
+                  controller: notes,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Catatan')),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Batal')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Simpan')),
+        ],
+      ),
+    ),
+  );
+  if (saved == true && context.mounted) {
+    final amount = int.tryParse(quantity.text);
+    final unitCost = double.tryParse(cost.text);
+    if (partId == null || amount == null || unitCost == null) {
+      _message(context, 'Data transaksi stok tidak valid.', error: true);
+    } else {
+      await _run(
+        context,
+        () => provider.adjustStock(
+          partId: partId!,
+          type: type,
+          quantity: amount,
+          unitCost: unitCost,
+          reference: reference.text.trim(),
+          notes: notes.text.trim(),
+        ),
+      );
+    }
+  }
+  quantity.dispose();
+  cost.dispose();
+  reference.dispose();
+  notes.dispose();
+}
+
 Future<void> _editPart(BuildContext context, {SerfixPart? part}) async {
   final provider = context.read<SerfixProvider>();
   final sku = TextEditingController(text: part?.sku ?? '');
   final name = TextEditingController(text: part?.name ?? '');
   final stock = TextEditingController(text: part?.stock.toString() ?? '0');
+  final minimumStock =
+      TextEditingController(text: part?.minimumStock.toString() ?? '3');
   final price =
       TextEditingController(text: part?.unitPrice.toStringAsFixed(0) ?? '0');
   final result = await showDialog<bool>(
@@ -3733,6 +4092,11 @@ Future<void> _editPart(BuildContext context, {SerfixPart? part}) async {
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Stok')),
           TextField(
+              controller: minimumStock,
+              keyboardType: TextInputType.number,
+              decoration:
+                  const InputDecoration(labelText: 'Stok minimum')),
+          TextField(
               controller: price,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(labelText: 'Harga satuan')),
@@ -3752,8 +4116,10 @@ Future<void> _editPart(BuildContext context, {SerfixPart? part}) async {
   );
   if (result == true && context.mounted) {
     final count = int.tryParse(stock.text);
+    final minimum = int.tryParse(minimumStock.text);
     final unitPrice = double.tryParse(price.text);
     if (count == null ||
+        minimum == null ||
         unitPrice == null ||
         sku.text.trim().isEmpty ||
         name.text.trim().isEmpty) {
@@ -3767,6 +4133,7 @@ Future<void> _editPart(BuildContext context, {SerfixPart? part}) async {
           name: name.text.trim(),
           stock: count,
           unitPrice: unitPrice,
+          minimumStock: minimum,
         ),
       );
     }
@@ -3774,6 +4141,7 @@ Future<void> _editPart(BuildContext context, {SerfixPart? part}) async {
   sku.dispose();
   name.dispose();
   stock.dispose();
+  minimumStock.dispose();
   price.dispose();
 }
 

@@ -42,7 +42,7 @@ if ($user['role'] === 'admin' || $user['role'] === 'manager') {
         'SELECT COUNT(*) FROM technician_profiles WHERE is_available = 1'
     )->fetchColumn();
     $summary['low_stock_parts'] = (int)$db->query(
-        'SELECT COUNT(*) FROM parts WHERE is_active = 1 AND stock_quantity <= 3'
+        'SELECT COUNT(*) FROM parts WHERE is_active = 1 AND stock_quantity <= minimum_stock'
     )->fetchColumn();
     $summary['pending_payments'] = (int)$db->query(
         'SELECT COUNT(*) FROM payments WHERE status = "pending"'

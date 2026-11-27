@@ -30,6 +30,8 @@ class ApiConstants {
   static String get technicians => '$baseUrl/technicians/index.php';
   static String get staff => '$baseUrl/staff/index.php';
   static String get parts => '$baseUrl/parts/index.php';
+  static String get areas => '$baseUrl/areas/index.php';
+  static String get password => '$baseUrl/auth/password.php';
   static String get workOrders => '$baseUrl/work_orders/index.php';
   static String get payments => '$baseUrl/payments/index.php';
   static String get warranties => '$baseUrl/warranties/index.php';
