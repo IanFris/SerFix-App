@@ -35,10 +35,10 @@ frontend/             Aplikasi mobile Flutter
    php api\admin\create_admin.php
    ```
 
-   Skrip meminta email dan kata sandi admin (minimal 12 karakter). Buka `http://localhost/serfix/api/admin/` dan masuk dengan kredensial itu. Panel digunakan untuk membuat akun admin/manajer/teknisi serta mengelola operasional. Pendaftaran publik di aplikasi hanya membuat akun pelanggan.
+   Skrip meminta email dan kata sandi admin (minimal 12 karakter). Buka `http://localhost/serfix/api/admin/` dan masuk dengan kredensial itu. Dari panel, buat akun staf dengan peran **Admin**, **Manajer**, atau **Teknisi**. Setelah itu, masuk ke aplikasi mobile melalui halaman **Masuk** menggunakan email dan kata sandi akun staf tersebut. Pendaftaran publik di aplikasi hanya membuat akun pelanggan.
 9. Aplikasi memakai endpoint `/serfix/api`; jika nama folder atau host berbeda, ubah Base URL pada halaman login atau **Pengaturan** setelah masuk.
 
-Panel admin mengelola sesi login secara terpisah dari akun peran aplikasi. Akun admin awal dari skrip diperlukan untuk masuk ke panel; akun staf yang dibuat di panel digunakan untuk masuk melalui aplikasi mobile.
+Akun admin awal yang dibuat oleh skrip hanya digunakan untuk masuk ke panel web. Sesi panel terpisah dari autentikasi aplikasi mobile; untuk memakai aplikasi sebagai admin, manajer, atau teknisi, buat akun staf dengan peran yang sesuai dari panel, lalu masuk ke aplikasi menggunakan akun staf itu.
 
 ## Menjalankan aplikasi Flutter
 
