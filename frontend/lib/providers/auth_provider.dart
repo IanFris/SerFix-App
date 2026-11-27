@@ -35,8 +35,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> startGuestSession() async {
-    _errorMessage =
-        'Silakan masuk dengan akun SerFix untuk menggunakan layanan.';
+    _currentUser = User(
+      id: 0,
+      name: 'Tamu',
+      email: '',
+      role: 'customer',
+      isGuest: true,
+    );
+    _errorMessage = null;
     notifyListeners();
   }
 

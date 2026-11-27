@@ -1,10 +1,11 @@
 # SerFix — Layanan Servis AC dan Elektronik Rumah Tangga
 
-SerFix adalah aplikasi mobile multi-role untuk menyatukan pengajuan servis, penugasan teknisi, work order, estimasi biaya, pencatatan sparepart, pembayaran, dan garansi. Pelanggan dapat memantau progres dan biaya, sementara teknisi dan pengelola menangani pekerjaan serta operasional dari satu platform.
+SerFix adalah aplikasi mobile multi-role untuk menyatukan pengajuan servis, penugasan teknisi, work order, estimasi biaya, pencatatan sparepart, pembayaran, dan garansi. Pengguna dapat masuk sebagai tamu untuk menjelajahi aplikasi; login atau pendaftaran diperlukan untuk mengajukan servis dan menggunakan fitur akun. Pelanggan dapat memantau progres dan biaya, sementara teknisi dan pengelola menangani pekerjaan serta operasional dari satu platform.
 
 ## Peran dan fitur
 
 - **Pelanggan:** daftar/masuk, mengajukan servis dan jadwal, melihat status serta estimasi, menyetujui biaya, mengirim catatan pembayaran, dan mengajukan klaim garansi.
+- **Tamu:** membuka aplikasi tanpa akun dengan akses terbatas; sesi tamu hanya berlaku sampai aplikasi ditutup.
 - **Teknisi:** melihat penugasan, mencatat diagnosis dan pekerjaan, mengelola sparepart yang dipakai, dan menyelesaikan work order.
 - **Admin:** mengelola permintaan dan penugasan, akun staf, stok sparepart, verifikasi pembayaran, dan klaim garansi.
 - **Manajer:** memantau ringkasan operasional serta mengelola keputusan pembayaran dan garansi.

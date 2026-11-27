@@ -1,8 +1,30 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:serfix/models/serfix_models.dart';
 import 'package:serfix/models/user.dart';
+import 'package:serfix/providers/auth_provider.dart';
+import 'package:serfix/providers/serfix_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('guest session enters the app without an API token', () async {
+    SharedPreferences.setMockInitialValues({});
+    final auth = AuthProvider();
+    while (auth.isInitializing) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    await auth.startGuestSession();
+
+    expect(auth.isAuthenticated, isTrue);
+    expect(auth.isGuest, isTrue);
+    expect(auth.currentUser?.name, 'Tamu');
+    expect(auth.currentUser?.token, isNull);
+
+    final serfix = SerfixProvider();
+    await serfix.load(auth.currentUser!);
+    expect(serfix.errorMessage, isNull);
+    expect(serfix.requests, isEmpty);
+  });
+
   test('User stores and restores the server-assigned SerFix role', () {
     final user = User(
       id: 8,

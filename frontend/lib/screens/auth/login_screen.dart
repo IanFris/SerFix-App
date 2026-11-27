@@ -280,6 +280,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                 ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: auth.isLoading
+                      ? null
+                      : () => context.read<AuthProvider>().startGuestSession(),
+                  child: const Text('Lanjutkan sebagai tamu'),
+                ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,

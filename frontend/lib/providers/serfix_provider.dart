@@ -52,7 +52,18 @@ class SerfixProvider extends ChangeNotifier {
 
   Future<void> refresh() async {
     if (_user == null || _user!.isGuest) {
-      _errorMessage = 'Silakan masuk dengan akun SerFix untuk memuat data.';
+      _categories = [];
+      _requests = [];
+      _technicians = [];
+      _parts = [];
+      _warranties = [];
+      _payments = [];
+      _staff = [];
+      _notifications = [];
+      _assets = [];
+      _technicianReport = [];
+      _summary = {};
+      _errorMessage = null;
       notifyListeners();
       return;
     }
@@ -99,30 +110,29 @@ class SerfixProvider extends ChangeNotifier {
       if (cached != null) {
         _requests = (cached['requests'] as List? ?? [])
             .whereType<Map>()
-            .map((item) => SerfixRequest.fromJson(
-                Map<String, dynamic>.from(item)))
+            .map((item) =>
+                SerfixRequest.fromJson(Map<String, dynamic>.from(item)))
             .toList();
         _categories = (cached['categories'] as List? ?? [])
             .whereType<Map>()
-            .map((item) => ServiceCategory.fromJson(
-                Map<String, dynamic>.from(item)))
+            .map((item) =>
+                ServiceCategory.fromJson(Map<String, dynamic>.from(item)))
             .toList();
         _summary = Map<String, dynamic>.from(cached['summary'] as Map? ?? {});
-        _notifications =
-            (cached['notifications'] as List? ?? [])
-                .whereType<Map>()
-                .map(Map<String, dynamic>.from)
-                .toList();
+        _notifications = (cached['notifications'] as List? ?? [])
+            .whereType<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList();
         _assets = (cached['assets'] as List? ?? [])
             .whereType<Map>()
             .map(Map<String, dynamic>.from)
             .toList();
-        _technicianReport =
-            (cached['technicianReport'] as List? ?? [])
-                .whereType<Map>()
-                .map(Map<String, dynamic>.from)
-                .toList();
-        _errorMessage = 'Mode offline: menampilkan data terakhir yang tersimpan.';
+        _technicianReport = (cached['technicianReport'] as List? ?? [])
+            .whereType<Map>()
+            .map(Map<String, dynamic>.from)
+            .toList();
+        _errorMessage =
+            'Mode offline: menampilkan data terakhir yang tersimpan.';
       } else {
         _errorMessage = error.toString();
       }
@@ -346,8 +356,7 @@ class SerfixProvider extends ChangeNotifier {
   Future<void> registerPushDevice(String token, String platform) =>
       ApiService.registerPushDevice(token, platform);
 
-  Future<List<Map<String, dynamic>>> getAssets() =>
-      ApiService.getAssets();
+  Future<List<Map<String, dynamic>>> getAssets() => ApiService.getAssets();
 
   Future<void> saveAsset({
     required String name,
@@ -405,8 +414,5 @@ class SerfixProvider extends ChangeNotifier {
     String? search,
   }) =>
       ApiService.getServiceRequests(
-          status: status,
-          categoryId: categoryId,
-          area: area,
-          search: search);
+          status: status, categoryId: categoryId, area: area, search: search);
 }

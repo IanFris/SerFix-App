@@ -36,7 +36,8 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SerfixProvider>();
-    final user = context.watch<AuthProvider>().currentUser;
+    final auth = context.watch<AuthProvider>();
+    final user = auth.currentUser;
     final role = provider.role;
     final labels = ['Beranda', 'Layanan', 'Pesan', 'Garansi', 'Akun'];
     return Scaffold(
@@ -50,20 +51,24 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            tooltip: 'Notifikasi',
-            onPressed: () => _openNotifications(context),
-            icon: Badge(
-              isLabelVisible: provider.notifications
-                  .any((item) => item['is_read'] == 0 || item['is_read'] == false),
-              child: const Icon(Icons.notifications_outlined),
+          if (!auth.isGuest)
+            IconButton(
+              tooltip: 'Notifikasi',
+              onPressed: () => _openNotifications(context),
+              icon: Badge(
+                isLabelVisible: provider.notifications.any(
+                    (item) => item['is_read'] == 0 || item['is_read'] == false),
+                child: const Icon(Icons.notifications_outlined),
+              ),
             ),
-          ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Chip(
-              avatar: Icon(_roleIcon(role), size: 16),
-              label: Text(role.label),
+              avatar: Icon(
+                auth.isGuest ? Icons.person_outline : _roleIcon(role),
+                size: 16,
+              ),
+              label: Text(auth.isGuest ? 'Tamu' : role.label),
               visualDensity: VisualDensity.compact,
             ),
           ),
@@ -71,7 +76,21 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
       ),
       body: Column(
         children: [
-          if (provider.errorMessage != null)
+          if (auth.isGuest)
+            MaterialBanner(
+              content: const Text(
+                'Mode tamu: masuk atau daftar untuk mengajukan servis dan '
+                'mengakses fitur akun.',
+              ),
+              leading: const Icon(Icons.person_outline),
+              actions: [
+                TextButton(
+                  onPressed: auth.logout,
+                  child: const Text('Masuk / Daftar'),
+                ),
+              ],
+            )
+          else if (provider.errorMessage != null)
             MaterialBanner(
               content: Text(provider.errorMessage!),
               leading: const Icon(Icons.cloud_off_outlined),
@@ -99,7 +118,9 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           ),
         ],
       ),
-      floatingActionButton: role == SerfixRole.customer && (_tab == 0 || _tab == 1)
+      floatingActionButton: !auth.isGuest &&
+              role == SerfixRole.customer &&
+              (_tab == 0 || _tab == 1)
           ? FloatingActionButton.extended(
               onPressed: () => _openRequestForm(context),
               icon: const Icon(Icons.add),
@@ -213,6 +234,7 @@ class _Dashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<SerfixProvider>();
+    final isGuest = user?.isGuest ?? false;
     final role = provider.role;
     final summary = provider.summary;
     final requests = provider.requests;
@@ -235,15 +257,24 @@ class _Dashboard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(_subtitle(role), style: Theme.of(context).textTheme.bodyMedium),
           const SizedBox(height: 18),
-          if (role == SerfixRole.customer)
+          if (role == SerfixRole.customer && !isGuest)
             _HeroCard(
               title: 'Servis rumah, tanpa ribet.',
               subtitle: 'Pesan teknisi tepercaya dan pantau prosesnya.',
               buttonLabel: 'Buat pengajuan servis',
               onPressed: () => _showRequestForm(context),
             ),
-          if (role == SerfixRole.customer) const SizedBox(height: 16),
-          _SummaryGrid(summary: summary, role: role),
+          if (role == SerfixRole.customer && !isGuest)
+            const SizedBox(height: 16),
+          if (isGuest)
+            const _InfoTile(
+              icon: Icons.explore_outlined,
+              title: 'Jelajahi SerFix sebagai tamu',
+              subtitle:
+                  'Buat akun atau masuk untuk melihat pengajuan dan menggunakan layanan servis.',
+            )
+          else
+            _SummaryGrid(summary: summary, role: role),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -339,8 +370,7 @@ class _MessageList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 24),
       children: [
-        Text('Pesan layanan',
-            style: Theme.of(context).textTheme.titleLarge),
+        Text('Pesan layanan', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 4),
         const Text('Chat langsung dengan pelanggan atau teknisi.'),
         const SizedBox(height: 14),
@@ -357,8 +387,8 @@ class _MessageList extends StatelessWidget {
                     child: Icon(Icons.chat_outlined),
                   ),
                   title: Text(request.service),
-                  subtitle: Text(request.technicianName ??
-                      request.customerName),
+                  subtitle:
+                      Text(request.technicianName ?? request.customerName),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _openChat(context, request),
                 ),
@@ -508,8 +538,7 @@ class _RequestListState extends State<_RequestList> {
           request.device.toLowerCase().contains(query) ||
           request.customerName.toLowerCase().contains(query) ||
           request.id.toString().contains(query);
-      final matchesStatus = _status.isEmpty ||
-          (request.status.name == _status);
+      final matchesStatus = _status.isEmpty || (request.status.name == _status);
       return matchesSearch && matchesStatus;
     }).toList();
     return RefreshIndicator(
@@ -537,8 +566,11 @@ class _RequestListState extends State<_RequestList> {
               DropdownMenuItem(value: '', child: Text('Semua status')),
               DropdownMenuItem(value: 'requested', child: Text('Diajukan')),
               DropdownMenuItem(value: 'assigned', child: Text('Ditugaskan')),
-              DropdownMenuItem(value: 'inProgress', child: Text('Sedang dikerjakan')),
-              DropdownMenuItem(value: 'waitingApproval', child: Text('Menunggu persetujuan')),
+              DropdownMenuItem(
+                  value: 'inProgress', child: Text('Sedang dikerjakan')),
+              DropdownMenuItem(
+                  value: 'waitingApproval',
+                  child: Text('Menunggu persetujuan')),
               DropdownMenuItem(value: 'completed', child: Text('Selesai')),
               DropdownMenuItem(value: 'cancelled', child: Text('Dibatalkan')),
             ],
@@ -816,9 +848,9 @@ class _RequestCard extends StatelessWidget {
                   pw.Text('Perangkat: ${invoice['device_name']}'),
                   pw.Text('Layanan: ${invoice['service_name']}'),
                   pw.SizedBox(height: 16),
-                  ...parts.map((part) => pw.Text(
-                      '- ${part['name']} x${part['quantity']} '
-                      '= Rp${part['unit_price']}')),
+                  ...parts.map((part) =>
+                      pw.Text('- ${part['name']} x${part['quantity']} '
+                          '= Rp${part['unit_price']}')),
                   pw.SizedBox(height: 16),
                   pw.Text(
                     'Total: Rp${invoice['final_amount']}',
@@ -826,7 +858,8 @@ class _RequestCard extends StatelessWidget {
                         fontSize: 16, fontWeight: pw.FontWeight.bold),
                   ),
                   pw.SizedBox(height: 24),
-                  pw.Text('Garansi dan rincian teknis tercantum pada sistem SerFix.',
+                  pw.Text(
+                      'Garansi dan rincian teknis tercantum pada sistem SerFix.',
                       style: const pw.TextStyle(fontSize: 10)),
                 ],
               ),
@@ -840,8 +873,8 @@ class _RequestCard extends StatelessWidget {
     }
   }
 
-  Future<void> _openAttachments(BuildContext context,
-      SerfixProvider provider, SerfixRequest request) async {
+  Future<void> _openAttachments(BuildContext context, SerfixProvider provider,
+      SerfixRequest request) async {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -944,7 +977,8 @@ class _RequestCard extends StatelessWidget {
           requestId: request.id,
           scheduledAt: scheduled,
           reason: 'Pelanggan mengusulkan jadwal baru.');
-      if (context.mounted) _message(context, 'Usulan jadwal dikirim untuk persetujuan.');
+      if (context.mounted)
+        _message(context, 'Usulan jadwal dikirim untuk persetujuan.');
     } catch (error) {
       if (context.mounted) _message(context, error.toString(), error: true);
     }
@@ -962,10 +996,8 @@ class _RequestCard extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Builder(builder: (sheetContext) {
-              final latitude =
-                  double.tryParse('${tracking?['latitude']}');
-              final longitude =
-                  double.tryParse('${tracking?['longitude']}');
+              final latitude = double.tryParse('${tracking?['latitude']}');
+              final longitude = double.tryParse('${tracking?['longitude']}');
               final position = latitude != null && longitude != null
                   ? LatLng(latitude, longitude)
                   : null;
@@ -974,8 +1006,8 @@ class _RequestCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('Lokasi teknisi',
-                      style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.w800)),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 12),
                   Text('Status: ${tracking?['status'] ?? 'not_started'}'),
                   Text('ETA: ${tracking?['eta_minutes'] ?? '-'} menit'),
@@ -1045,9 +1077,11 @@ class _RequestCard extends StatelessWidget {
               DropdownButtonFormField<String>(
                 initialValue: status,
                 items: const [
-                  DropdownMenuItem(value: 'heading', child: Text('Menuju lokasi')),
+                  DropdownMenuItem(
+                      value: 'heading', child: Text('Menuju lokasi')),
                   DropdownMenuItem(value: 'arrived', child: Text('Sudah tiba')),
-                  DropdownMenuItem(value: 'working', child: Text('Sedang bekerja')),
+                  DropdownMenuItem(
+                      value: 'working', child: Text('Sedang bekerja')),
                   DropdownMenuItem(value: 'completed', child: Text('Selesai')),
                 ],
                 onChanged: (value) =>
@@ -1111,11 +1145,8 @@ class _RequestCard extends StatelessWidget {
                 children: List.generate(
                   5,
                   (index) => IconButton(
-                    onPressed: () =>
-                        setSheetState(() => rating = index + 1),
-                    icon: Icon(index < rating
-                        ? Icons.star
-                        : Icons.star_border),
+                    onPressed: () => setSheetState(() => rating = index + 1),
+                    icon: Icon(index < rating ? Icons.star : Icons.star_border),
                     color: Colors.amber,
                   ),
                 ),
@@ -1459,8 +1490,11 @@ class _AccountPage extends StatelessWidget {
         CircleAvatar(
           radius: 34,
           backgroundColor: const Color(0xFFE0F2F1),
-          child:
-              Icon(_roleIcon(role), size: 34, color: const Color(0xFF0F8B80)),
+          child: Icon(
+            user?.isGuest == true ? Icons.person_outline : _roleIcon(role),
+            size: 34,
+            color: const Color(0xFF0F8B80),
+          ),
         ),
         const SizedBox(height: 12),
         Center(
@@ -1472,15 +1506,30 @@ class _AccountPage extends StatelessWidget {
         _InfoTile(
           icon: Icons.badge_outlined,
           title: 'Peran aktif',
-          subtitle: role.label,
+          subtitle: user?.isGuest == true ? 'Tamu' : role.label,
         ),
         if (role == SerfixRole.technician) ...[
           const SizedBox(height: 10),
           _InventoryList(parts: provider.parts),
         ],
-        if (role == SerfixRole.customer) ...[
+        if (role == SerfixRole.customer && user?.isGuest != true) ...[
           const SizedBox(height: 14),
           _AssetList(assets: provider.assets, categories: provider.categories),
+        ],
+        if (user?.isGuest == true) ...[
+          const SizedBox(height: 14),
+          const _InfoTile(
+            icon: Icons.lock_outline,
+            title: 'Fitur akun belum tersedia',
+            subtitle:
+                'Masuk atau daftar untuk mengajukan servis, menyimpan perangkat, dan melihat garansi.',
+          ),
+          const SizedBox(height: 8),
+          FilledButton.icon(
+            onPressed: context.read<AuthProvider>().logout,
+            icon: const Icon(Icons.login),
+            label: const Text('Masuk / Daftar'),
+          ),
         ],
         if (role == SerfixRole.admin || role == SerfixRole.manager) ...[
           const SizedBox(height: 14),
@@ -1537,13 +1586,22 @@ class _AssetList extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(controller: name, decoration: const InputDecoration(labelText: 'Nama aset')),
-                TextField(controller: brand, decoration: const InputDecoration(labelText: 'Merek')),
-                TextField(controller: model, decoration: const InputDecoration(labelText: 'Model')),
-                TextField(controller: serial, decoration: const InputDecoration(labelText: 'Nomor seri')),
+                TextField(
+                    controller: name,
+                    decoration: const InputDecoration(labelText: 'Nama aset')),
+                TextField(
+                    controller: brand,
+                    decoration: const InputDecoration(labelText: 'Merek')),
+                TextField(
+                    controller: model,
+                    decoration: const InputDecoration(labelText: 'Model')),
+                TextField(
+                    controller: serial,
+                    decoration: const InputDecoration(labelText: 'Nomor seri')),
                 DropdownButtonFormField<int>(
                   initialValue: categoryId,
-                  decoration: const InputDecoration(labelText: 'Kategori layanan'),
+                  decoration:
+                      const InputDecoration(labelText: 'Kategori layanan'),
                   items: categories
                       .map((category) => DropdownMenuItem(
                           value: category.id, child: Text(category.name)))
@@ -1554,20 +1612,26 @@ class _AssetList extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Batal')),
-            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Simpan')),
+            TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Batal')),
+            FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Simpan')),
           ],
         ),
       ),
     );
     if (result == true && context.mounted) {
-      await _run(context, () => provider.saveAsset(
-            name: name.text.trim(),
-            categoryId: categoryId,
-            brand: brand.text.trim(),
-            model: model.text.trim(),
-            serialNumber: serial.text.trim(),
-          ));
+      await _run(
+          context,
+          () => provider.saveAsset(
+                name: name.text.trim(),
+                categoryId: categoryId,
+                brand: brand.text.trim(),
+                model: model.text.trim(),
+                serialNumber: serial.text.trim(),
+              ));
     }
     name.dispose();
     brand.dispose();
@@ -1635,8 +1699,7 @@ class _TechnicianReportList extends StatelessWidget {
                     contentPadding: EdgeInsets.zero,
                     leading: const Icon(Icons.engineering_outlined),
                     title: Text(item['name']?.toString() ?? ''),
-                    subtitle: Text(
-                        '${item['completed_jobs']} servis · '
+                    subtitle: Text('${item['completed_jobs']} servis · '
                         'Rating ${(double.tryParse('${item['average_rating']}') ?? 0).toStringAsFixed(1)}'),
                     trailing: Text(
                       _money(double.tryParse('${item['revenue']}') ?? 0),
@@ -2433,7 +2496,8 @@ Future<void> _pay(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Referensi: ${transaction['gateway_reference']}'),
-                  Text('Jumlah: ${_money((transaction['amount'] as num?)?.toDouble() ?? 0)}'),
+                  Text(
+                      'Jumlah: ${_money((transaction['amount'] as num?)?.toDouble() ?? 0)}'),
                   const SizedBox(height: 8),
                   const Text(
                     'Gateway siap menerima webhook pembayaran. Sambungkan provider QRIS nyata pada konfigurasi backend sebelum produksi.',
