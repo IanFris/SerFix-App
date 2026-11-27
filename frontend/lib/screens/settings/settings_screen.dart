@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/serfix_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/session_service.dart';
+import '../../widgets/serfix_components.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -115,8 +118,9 @@ class SettingsScreen extends StatelessWidget {
     controller.dispose();
     if (result == null || result.trim().isEmpty || !context.mounted) return;
     try {
-      await context.read<SerfixProvider>().registerPushDevice(
-          result.trim(), Theme.of(context).platform.name);
+      await context
+          .read<SerfixProvider>()
+          .registerPushDevice(result.trim(), Theme.of(context).platform.name);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Perangkat push berhasil didaftarkan.')),
@@ -136,7 +140,8 @@ class SettingsScreen extends StatelessWidget {
     if (!context.mounted) return;
     if (mutations.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak ada perubahan offline untuk sinkronisasi.')),
+        const SnackBar(
+            content: Text('Tidak ada perubahan offline untuk sinkronisasi.')),
       );
       return;
     }
@@ -144,7 +149,8 @@ class SettingsScreen extends StatelessWidget {
       await context.read<SerfixProvider>().syncOfflineMutations(mutations);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Perubahan offline berhasil disinkronkan.')),
+          const SnackBar(
+              content: Text('Perubahan offline berhasil disinkronkan.')),
         );
       }
     } catch (error) {
@@ -161,25 +167,61 @@ class SettingsScreen extends StatelessWidget {
     final settings = context.watch<SettingsProvider>();
     final user = context.watch<AuthProvider>().currentUser;
     return Scaffold(
-      appBar: AppBar(title: const Text('Pengaturan')),
+      appBar: const SerfixAppBar(
+        title: 'Pengaturan',
+        subtitle: 'Preferensi dan keamanan akun',
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(AppSpacing.x4),
         children: [
           Card(
-            child: ListTile(
-              leading: const CircleAvatar(
-                child: Icon(Icons.home_repair_service_outlined),
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.x4),
+              child: Row(
+                children: [
+                  Container(
+                    width: AppSpacing.appLogoSize,
+                    height: AppSpacing.appLogoSize,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.name ?? 'Pengguna SerFix',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        const SizedBox(height: AppSpacing.x1),
+                        Text(
+                          '${user?.email ?? ''} · ${user?.role ?? ''}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Icons.verified_user_outlined,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ],
               ),
-              title: Text(user?.name ?? 'Pengguna SerFix'),
-              subtitle: Text('${user?.email ?? ''} · ${user?.role ?? ''}'),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.x6),
           Text('Tampilan', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: AppSpacing.x2),
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(14),
+              padding: const EdgeInsets.all(AppSpacing.x3),
               child: SegmentedButton<ThemeMode>(
                 segments: const [
                   ButtonSegment(
@@ -204,7 +246,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.x6),
           Text('Sinkronisasi dan push',
               style: Theme.of(context).textTheme.titleMedium),
           Card(
@@ -213,7 +255,8 @@ class SettingsScreen extends StatelessWidget {
                 ListTile(
                   leading: const Icon(Icons.notifications_active_outlined),
                   title: const Text('Daftarkan perangkat push'),
-                  subtitle: const Text('Tambahkan token FCM/APNs dari provider push.'),
+                  subtitle: const Text(
+                      'Tambahkan token FCM/APNs dari provider push.'),
                   onTap: () => _registerPushDevice(context),
                 ),
                 const Divider(height: 1),
@@ -226,7 +269,7 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.x6),
           Text('Server', style: Theme.of(context).textTheme.titleMedium),
           Card(
             child: Column(

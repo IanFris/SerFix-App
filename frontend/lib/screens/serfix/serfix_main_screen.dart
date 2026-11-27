@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
@@ -9,9 +11,12 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../models/user.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/serfix_provider.dart';
+import '../../widgets/serfix_components.dart';
 import '../settings/settings_screen.dart';
 
 class SerfixMainScreen extends StatefulWidget {
@@ -41,35 +46,64 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
     final role = provider.role;
     final labels = ['Beranda', 'Layanan', 'Pesan', 'Garansi', 'Akun'];
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.home_repair_service_rounded,
-                color: Color(0xFF0F8B80)),
-            const SizedBox(width: 8),
-            Text('SerFix · ${labels[_tab]}'),
-          ],
+      appBar: SerfixAppBar(
+        title: 'SerFix',
+        subtitle: labels[_tab],
+        leading: Container(
+          width: AppSpacing.appLogoSize,
+          height: AppSpacing.appLogoSize,
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          ),
+          child: const Icon(
+            Icons.ac_unit_outlined,
+            color: AppColors.primary,
+            size: AppSpacing.iconLarge,
+          ),
         ),
         actions: [
           if (!auth.isGuest)
             IconButton(
               tooltip: 'Notifikasi',
+              constraints: const BoxConstraints(
+                minWidth: AppSpacing.tapTarget,
+                minHeight: AppSpacing.tapTarget,
+              ),
               onPressed: () => _openNotifications(context),
               icon: Badge(
                 isLabelVisible: provider.notifications.any(
                     (item) => item['is_read'] == 0 || item['is_read'] == false),
-                child: const Icon(Icons.notifications_outlined),
+                child: const Icon(
+                  Icons.notifications_none_outlined,
+                  color: AppColors.neutral700,
+                ),
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Chip(
-              avatar: Icon(
-                auth.isGuest ? Icons.person_outline : _roleIcon(role),
-                size: 16,
-              ),
-              label: Text(auth.isGuest ? 'Tamu' : role.label),
-              visualDensity: VisualDensity.compact,
+          const SizedBox(width: AppSpacing.x1),
+          Container(
+            constraints: const BoxConstraints(minHeight: 36),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.x2),
+            decoration: BoxDecoration(
+              color: AppColors.neutral100,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  auth.isGuest ? Icons.person_outline : _roleIcon(role),
+                  size: AppSpacing.iconSmall,
+                  color: AppColors.secondary,
+                ),
+                const SizedBox(width: AppSpacing.x1),
+                Text(
+                  auth.isGuest ? 'Tamu' : role.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: AppColors.secondary,
+                      ),
+                ),
+              ],
             ),
           ),
         ],
@@ -101,7 +135,11 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
                 ),
               ],
             ),
-          if (provider.isLoading) const LinearProgressIndicator(minHeight: 2),
+          if (provider.isLoading)
+            const SerfixSkeleton(
+              height: AppSpacing.progressThickness,
+              radius: AppSpacing.radiusNone,
+            ),
           Expanded(
             child: IndexedStack(
               index: _tab,
@@ -118,43 +156,42 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
           ),
         ],
       ),
-      floatingActionButton: !auth.isGuest &&
-              role == SerfixRole.customer &&
-              (_tab == 0 || _tab == 1)
-          ? FloatingActionButton.extended(
-              onPressed: () => _openRequestForm(context),
-              icon: const Icon(Icons.add),
-              label: const Text('Ajukan servis'),
-            )
-          : null,
-      bottomNavigationBar: NavigationBar(
+      floatingActionButton:
+          !auth.isGuest && role == SerfixRole.customer && _tab == 1
+              ? FloatingActionButton.extended(
+                  onPressed: () => _openRequestForm(context),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('Ajukan servis'),
+                )
+              : null,
+      bottomNavigationBar: SerfixBottomNavigation(
         selectedIndex: _tab,
-        onDestinationSelected: (index) => setState(() => _tab = index),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.space_dashboard_outlined),
-            selectedIcon: Icon(Icons.space_dashboard),
+        onSelected: (index) => setState(() => _tab = index),
+        items: const [
+          SerfixBottomNavItem(
             label: 'Beranda',
+            icon: Icons.home_outlined,
+            selectedIcon: Icons.home,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
+          SerfixBottomNavItem(
             label: 'Layanan',
+            icon: Icons.handyman_outlined,
+            selectedIcon: Icons.handyman,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline),
-            selectedIcon: Icon(Icons.chat_bubble),
+          SerfixBottomNavItem(
             label: 'Pesan',
+            icon: Icons.chat_bubble_outline,
+            selectedIcon: Icons.chat_bubble,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.verified_user_outlined),
-            selectedIcon: Icon(Icons.verified_user),
+          SerfixBottomNavItem(
             label: 'Garansi',
+            icon: Icons.verified_user_outlined,
+            selectedIcon: Icons.verified_user,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
+          SerfixBottomNavItem(
             label: 'Akun',
+            icon: Icons.person_outline,
+            selectedIcon: Icons.person,
           ),
         ],
       ),
@@ -178,7 +215,7 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
       builder: (_) => StatefulBuilder(
         builder: (sheetContext, setSheetState) => SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(AppSpacing.x4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,7 +238,9 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
                 ),
                 if (provider.notifications.isEmpty)
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
+                    padding: EdgeInsets.symmetric(
+                      vertical: AppSpacing.x6,
+                    ),
                     child: Center(child: Text('Belum ada notifikasi.')),
                   )
                 else
@@ -211,7 +250,7 @@ class _SerfixMainScreenState extends State<SerfixMainScreen> {
                           item['is_read'] == 1
                               ? Icons.notifications_none
                               : Icons.notifications_active_outlined,
-                          color: const Color(0xFF0F8B80),
+                          color: AppColors.primary,
                         ),
                         title: Text(item['title']?.toString() ?? ''),
                         subtitle: Text(item['message']?.toString() ?? ''),
@@ -242,30 +281,54 @@ class _Dashboard extends StatelessWidget {
     final personalRequests = role == SerfixRole.customer
         ? requests.where((request) => request.customerId == user?.id).toList()
         : requests;
+    final activeRequests = role == SerfixRole.customer
+        ? personalRequests
+            .where((request) =>
+                request.status != ServiceRequestStatus.completed &&
+                request.status != ServiceRequestStatus.cancelled)
+            .toList()
+        : <SerfixRequest>[];
+    final activeRequest = activeRequests.isEmpty ? null : activeRequests.first;
+    final recentRequests = activeRequest == null
+        ? personalRequests
+        : personalRequests
+            .where((request) => request.id != activeRequest.id)
+            .toList();
 
     return RefreshIndicator(
       onRefresh: provider.refresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(18, 12, 18, 96),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.x4,
+          AppSpacing.x3,
+          AppSpacing.x4,
+          AppSpacing.x12,
+        ),
         children: [
           Text(
             role == SerfixRole.customer
-                ? 'Halo, $name 👋'
-                : 'Halo, ${role.label} 👋',
+                ? (name.isEmpty ? 'Selamat datang' : 'Halo, $name')
+                : 'Halo, ${role.label}',
             style: Theme.of(context).textTheme.headlineSmall,
           ),
-          const SizedBox(height: 4),
-          Text(_subtitle(role), style: Theme.of(context).textTheme.bodyMedium),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.x1),
+          Text(
+            _subtitle(role),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.neutral600,
+                ),
+          ),
+          const SizedBox(height: AppSpacing.x4),
           if (role == SerfixRole.customer && !isGuest)
             _HeroCard(
-              title: 'Servis rumah, tanpa ribet.',
-              subtitle: 'Pesan teknisi tepercaya dan pantau prosesnya.',
-              buttonLabel: 'Buat pengajuan servis',
+              title: 'Rumah kembali nyaman.',
+              subtitle:
+                  'Teknisi terverifikasi, servis transparan, dan garansi jelas.',
+              buttonLabel: 'Pesan servis',
               onPressed: () => _showRequestForm(context),
             ),
           if (role == SerfixRole.customer && !isGuest)
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.x4),
           if (isGuest)
             const _InfoTile(
               icon: Icons.explore_outlined,
@@ -275,31 +338,487 @@ class _Dashboard extends StatelessWidget {
             )
           else
             _SummaryGrid(summary: summary, role: role),
-          const SizedBox(height: 22),
-          Row(
-            children: [
-              const Expanded(child: _SectionHeading(title: 'Layanan terbaru')),
-              TextButton(
-                onPressed: () => onNavigate(1),
-                child: const Text('Lihat semua'),
+          if (role == SerfixRole.customer && !isGuest) ...[
+            const SizedBox(height: AppSpacing.x6),
+            const _SectionHeading(title: 'Akses cepat'),
+            const SizedBox(height: AppSpacing.x3),
+            Row(
+              children: [
+                Expanded(
+                  child: _QuickActionTile(
+                    label: 'Riwayat',
+                    icon: Icons.history_rounded,
+                    onTap: () => onNavigate(1),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+                Expanded(
+                  child: _QuickActionTile(
+                    label: 'Chat teknisi',
+                    icon: Icons.chat_bubble_outline,
+                    onTap: () => onNavigate(2),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+                Expanded(
+                  child: _QuickActionTile(
+                    label: 'Garansi',
+                    icon: Icons.verified_user_outlined,
+                    onTap: () => onNavigate(3),
+                  ),
+                ),
+              ],
+            ),
+            if (activeRequest != null) ...[
+              const SizedBox(height: AppSpacing.x6),
+              const _SectionHeading(title: 'Servis aktif'),
+              const SizedBox(height: AppSpacing.x3),
+              _ActiveServiceCard(
+                request: activeRequest,
+                onTap: () => onNavigate(1),
               ),
             ],
-          ),
-          if (personalRequests.isEmpty)
-            const _InfoTile(
-              icon: Icons.inbox_outlined,
-              title: 'Belum ada pengajuan servis',
-              subtitle: 'Pengajuan layanan Anda akan tampil di sini.',
-            )
-          else
-            ...personalRequests.take(3).map((request) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _RequestCard(request: request),
-                )),
+            const SizedBox(height: AppSpacing.x6),
+            Row(
+              children: [
+                const Expanded(child: _SectionHeading(title: 'Pilih layanan')),
+                TextButton(
+                  onPressed: () => onNavigate(1),
+                  child: const Text('Lihat semua'),
+                ),
+              ],
+            ),
+            if (provider.categories.isEmpty && provider.isLoading)
+              const Row(
+                children: [
+                  Expanded(
+                    child: SerfixSkeleton(
+                      height: AppSpacing.serviceCardSkeletonHeight,
+                      radius: AppSpacing.radiusLg,
+                    ),
+                  ),
+                  SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: SerfixSkeleton(
+                      height: AppSpacing.serviceCardSkeletonHeight,
+                      radius: AppSpacing.radiusLg,
+                    ),
+                  ),
+                ],
+              )
+            else if (provider.categories.isEmpty)
+              const SerfixEmptyState(
+                title: 'Layanan sedang disiapkan',
+                message:
+                    'Tarik layar untuk memuat ulang katalog layanan SerFix.',
+              )
+            else
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: provider.categories.take(4).length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: AppSpacing.x3,
+                  crossAxisSpacing: AppSpacing.x3,
+                  childAspectRatio: AppSpacing.homeServiceCardAspectRatio,
+                ),
+                itemBuilder: (context, index) {
+                  final category = provider.categories[index];
+                  return SerfixServiceCard(
+                    title: category.name,
+                    description: category.description,
+                    priceLabel: 'Mulai ${_money(category.baseFee)}',
+                    icon: _categoryIcon(category.name),
+                    onTap: () => _showRequestForm(
+                      context,
+                      initialCategoryId: category.id,
+                    ),
+                  );
+                },
+              ),
+            const SizedBox(height: AppSpacing.x4),
+            _PromoBanner(onTap: () => _showRequestForm(context)),
+          ],
+          if (recentRequests.isNotEmpty ||
+              (personalRequests.isEmpty && activeRequest == null)) ...[
+            const SizedBox(height: AppSpacing.x6),
+            Row(
+              children: [
+                const Expanded(
+                    child: _SectionHeading(title: 'Layanan terbaru')),
+                TextButton(
+                  onPressed: () => onNavigate(1),
+                  child: const Text('Lihat semua'),
+                ),
+              ],
+            ),
+            if (recentRequests.isEmpty)
+              const SerfixEmptyState(
+                title: 'Belum ada servis',
+                message: 'Pengajuan servis akan muncul di sini setelah dibuat.',
+              )
+            else
+              ...recentRequests.take(3).map((request) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _RequestCard(request: request),
+                  )),
+          ],
         ],
       ),
     );
   }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: Container(
+            constraints:
+                const BoxConstraints(minHeight: AppSpacing.quickActionHeight),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.x2,
+              vertical: AppSpacing.x3,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: Theme.of(context).brightness == Brightness.light
+                    ? AppColors.neutral200
+                    : AppColors.darkBorder,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: AppSpacing.iconLarge,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: AppSpacing.x2),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+class _ActiveServiceCard extends StatelessWidget {
+  const _ActiveServiceCard({required this.request, required this.onTap});
+
+  final SerfixRequest request;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = _statusColor(
+      request.status,
+      isDark: theme.brightness == Brightness.dark,
+    );
+    return Material(
+      color: theme.colorScheme.surface,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.x4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(
+              color: theme.brightness == Brightness.light
+                  ? AppColors.neutral200
+                  : AppColors.darkBorder,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: AppSpacing.serviceIconBox,
+                    height: AppSpacing.serviceIconBox,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    ),
+                    child: Icon(
+                      Icons.handyman_outlined,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.x3),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          request.service,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        Text(
+                          request.device,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SerfixStatusBadge(
+                    label: request.status.label,
+                    color: color,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.x3),
+              Row(
+                children: [
+                  Icon(
+                    Icons.event_outlined,
+                    size: AppSpacing.iconSmall,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
+                  ),
+                  const SizedBox(width: AppSpacing.x2),
+                  Expanded(
+                    child: Text(
+                      _dateTime(request.scheduledAt),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                    ),
+                  ),
+                  Text(
+                    'Detail servis',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                        ),
+                  ),
+                  const SizedBox(width: AppSpacing.x1),
+                  Icon(
+                    Icons.arrow_forward_rounded,
+                    size: AppSpacing.iconSmall,
+                    color: theme.colorScheme.primary,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceTrackingStepper extends StatelessWidget {
+  const _ServiceTrackingStepper({required this.activeStep});
+
+  final int activeStep;
+
+  @override
+  Widget build(BuildContext context) {
+    const labels = ['Diterima', 'Dikerjakan', 'Selesai'];
+    const icons = [
+      Icons.assignment_turned_in_outlined,
+      Icons.handyman_outlined,
+      Icons.task_alt_outlined,
+    ];
+    final theme = Theme.of(context);
+    final activeColor = theme.colorScheme.primary;
+    final inactiveColor = theme.brightness == Brightness.light
+        ? AppColors.neutral400
+        : AppColors.neutral500;
+
+    return Row(
+      children: [
+        for (var index = 0; index < labels.length; index++) ...[
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: AppSpacing.serviceIconBox,
+                  height: AppSpacing.serviceIconBox,
+                  decoration: BoxDecoration(
+                    color: index <= activeStep
+                        ? activeColor.withValues(alpha: 0.12)
+                        : theme.colorScheme.surfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    index < activeStep ? Icons.check_rounded : icons[index],
+                    size: AppSpacing.iconMedium,
+                    color: index <= activeStep ? activeColor : inactiveColor,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.x1),
+                Text(
+                  labels[index],
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: index <= activeStep
+                        ? theme.colorScheme.onSurface
+                        : inactiveColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (index < labels.length - 1)
+            Expanded(
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: AppSpacing.serviceIconBox,
+                    child: Center(
+                      child: Container(
+                        height: AppSpacing.stepperLineThickness,
+                        color: index < activeStep ? activeColor : inactiveColor,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.x1),
+                  const SizedBox(height: AppSpacing.iconMedium),
+                ],
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PromoBanner extends StatelessWidget {
+  const _PromoBanner({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Material(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
+          child: Ink(
+            padding: const EdgeInsets.all(AppSpacing.x4),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppColors.secondary, AppColors.primary],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.x2,
+                          vertical: AppSpacing.x1,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.14),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusPill),
+                        ),
+                        child: Text(
+                          'LAYANAN TEPERCAYA',
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: Colors.white,
+                                    letterSpacing: 0.5,
+                                  ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.x3),
+                      Text(
+                        'Teknisi siap bantu rumah.',
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                ),
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        'Servis transparan, dilengkapi garansi.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.white.withValues(alpha: 0.88),
+                            ),
+                      ),
+                      const SizedBox(height: AppSpacing.x3),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Lihat layanan',
+                            style: Theme.of(context)
+                                .textTheme
+                                .labelLarge
+                                ?.copyWith(
+                                  color: Colors.white,
+                                ),
+                          ),
+                          const SizedBox(width: AppSpacing.x1),
+                          const Icon(
+                            Icons.arrow_forward_rounded,
+                            size: AppSpacing.iconSmall,
+                            color: Colors.white,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+                const Icon(
+                  Icons.ac_unit_outlined,
+                  size: AppSpacing.iconExtraLarge,
+                  color: AppColors.accent,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 class _SummaryGrid extends StatelessWidget {
@@ -347,9 +866,9 @@ class _SummaryGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 2.4,
+      mainAxisSpacing: AppSpacing.x2,
+      crossAxisSpacing: AppSpacing.x2,
+      childAspectRatio: 2.1,
       children: items
           .map((item) => _SummaryCard(
                 title: item.$1,
@@ -375,10 +894,9 @@ class _MessageList extends StatelessWidget {
         const Text('Chat langsung dengan pelanggan atau teknisi.'),
         const SizedBox(height: 14),
         if (requests.isEmpty)
-          const _InfoTile(
-            icon: Icons.chat_bubble_outline,
+          const SerfixEmptyState(
             title: 'Belum ada percakapan',
-            subtitle: 'Pesan akan tersedia setelah ada pengajuan servis.',
+            message: 'Chat tersedia setelah ada pengajuan servis.',
           )
         else
           ...requests.map((request) => Card(
@@ -420,6 +938,7 @@ class _ChatSheetState extends State<_ChatSheet> {
   final _messageController = TextEditingController();
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -427,13 +946,24 @@ class _ChatSheetState extends State<_ChatSheet> {
     _load();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool showLoading = false}) async {
+    if (showLoading && mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
     try {
       final messages =
           await context.read<SerfixProvider>().getMessages(widget.request.id);
       if (mounted) setState(() => _messages = messages);
     } catch (_) {
-      // Server errors are surfaced only after an attempted send/load action.
+      if (mounted) {
+        setState(() {
+          _loadError =
+              'Pesan belum dapat dimuat. Periksa koneksi lalu coba lagi.';
+        });
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -472,24 +1002,49 @@ class _ChatSheetState extends State<_ChatSheet> {
             ),
             Expanded(
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _messages.isEmpty
-                      ? const Center(child: Text('Belum ada pesan.'))
-                      : ListView.builder(
-                          padding: const EdgeInsets.all(18),
-                          itemCount: _messages.length,
-                          itemBuilder: (_, index) {
-                            final item = _messages[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                  item['sender_name']?.toString() ?? 'Pengguna',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w700)),
-                              subtitle: Text(item['message']?.toString() ?? ''),
-                            );
-                          },
-                        ),
+                  ? const Padding(
+                      padding: EdgeInsets.all(AppSpacing.x4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SerfixSkeleton(width: 180),
+                          SizedBox(height: AppSpacing.x3),
+                          SerfixSkeleton(width: 240, height: 44),
+                          SizedBox(height: AppSpacing.x2),
+                          SerfixSkeleton(width: 200, height: 44),
+                        ],
+                      ),
+                    )
+                  : _loadError != null
+                      ? SerfixEmptyState(
+                          title: 'Chat belum tersambung',
+                          message: _loadError!,
+                          actionLabel: 'Coba lagi',
+                          onAction: () => _load(showLoading: true),
+                        )
+                      : _messages.isEmpty
+                          ? const SerfixEmptyState(
+                              title: 'Mulai percakapan',
+                              message:
+                                  'Kirim pesan kepada teknisi tentang servis ini.',
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.all(18),
+                              itemCount: _messages.length,
+                              itemBuilder: (_, index) {
+                                final item = _messages[index];
+                                return ListTile(
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                      item['sender_name']?.toString() ??
+                                          'Pengguna',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700)),
+                                  subtitle:
+                                      Text(item['message']?.toString() ?? ''),
+                                );
+                              },
+                            ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
@@ -578,10 +1133,20 @@ class _RequestListState extends State<_RequestList> {
           ),
           const SizedBox(height: 14),
           if (requests.isEmpty)
-            const _InfoTile(
-              icon: Icons.inbox_outlined,
-              title: 'Belum ada pengajuan',
-              subtitle: 'Pengajuan servis akan muncul di sini.',
+            SerfixEmptyState(
+              title: provider.requests.isEmpty
+                  ? 'Belum ada pengajuan'
+                  : 'Tidak ada yang cocok',
+              message: provider.requests.isEmpty
+                  ? 'Pengajuan servis akan tampil di sini setelah dibuat.'
+                  : 'Ubah pencarian atau status untuk melihat pengajuan lain.',
+              actionLabel: provider.requests.isEmpty ? null : 'Hapus filter',
+              onAction: provider.requests.isEmpty
+                  ? null
+                  : () => setState(() {
+                        _search = '';
+                        _status = '';
+                      }),
             )
           else
             ...requests.map((request) => Padding(
@@ -607,24 +1172,31 @@ class _RequestCard extends StatelessWidget {
     final schedule = _dateTime(request.scheduledAt);
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(15),
+        padding: const EdgeInsets.all(AppSpacing.x4),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  backgroundColor: const Color(0xFFE0F2F1),
-                  child: Icon(_serviceIcon(request.service),
-                      color: const Color(0xFF0F8B80)),
+                Container(
+                  width: AppSpacing.serviceIconBox,
+                  height: AppSpacing.serviceIconBox,
+                  decoration: BoxDecoration(
+                    color: AppColors.neutral100,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Icon(
+                    _serviceIcon(request.service),
+                    color: AppColors.primary,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: AppSpacing.x3),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(request.service,
-                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                          style: Theme.of(context).textTheme.titleSmall),
                       Text(request.device,
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
@@ -633,34 +1205,37 @@ class _RequestCard extends StatelessWidget {
                 _StatusBadge(status: request.status),
               ],
             ),
-            const Divider(height: 22),
-            _DetailRow(icon: Icons.schedule, text: schedule),
-            const SizedBox(height: 6),
+            const Divider(height: AppSpacing.x6),
+            _DetailRow(icon: Icons.schedule_outlined, text: schedule),
+            const SizedBox(height: AppSpacing.x2),
             _DetailRow(
               icon: Icons.person_outline,
               text: role == SerfixRole.customer
                   ? 'Teknisi: ${request.technicianName ?? 'Menunggu penugasan'}'
                   : 'Pelanggan: ${request.customerName}',
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: AppSpacing.x2),
             _DetailRow(
                 icon: Icons.location_on_outlined,
                 text: '${request.area} · ${request.address}'),
-            const SizedBox(height: 7),
+            const SizedBox(height: AppSpacing.x2),
             Text('Keluhan: ${request.issue}',
                 maxLines: detailed ? 4 : 2,
                 overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.x3),
             Row(
               children: [
-                const Icon(Icons.receipt_long_outlined, size: 17),
-                const SizedBox(width: 6),
+                const Icon(
+                  Icons.receipt_long_outlined,
+                  size: AppSpacing.iconSmall,
+                ),
+                const SizedBox(width: AppSpacing.x2),
                 Expanded(
                   child: Text(
                     'Estimasi ${_money(request.estimate)}'
                     '${request.finalAmount == null ? '' : ' · Total ${_money(request.finalAmount!)}'}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: Theme.of(context).textTheme.labelLarge,
                   ),
                 ),
                 if (request.paymentStatus == 'paid')
@@ -671,7 +1246,7 @@ class _RequestCard extends StatelessWidget {
                 request.workDescription?.isNotEmpty == true ||
                 request.parts.isNotEmpty ||
                 request.warrantyEndsAt != null) ...[
-              const Divider(height: 20),
+              const Divider(height: AppSpacing.x6),
               if (request.diagnosis?.isNotEmpty == true)
                 Text('Diagnosis: ${request.diagnosis}'),
               if (request.workDescription?.isNotEmpty == true)
@@ -682,9 +1257,9 @@ class _RequestCard extends StatelessWidget {
                 Text('Garansi sampai ${_date(request.warrantyEndsAt!)}'),
             ],
             if (_hasActions(provider, request)) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.x3),
               const Divider(height: 1),
-              const SizedBox(height: 9),
+              const SizedBox(height: AppSpacing.x2),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -989,12 +1564,19 @@ class _RequestCard extends StatelessWidget {
     try {
       final tracking = await provider.getTracking(request.id);
       if (!context.mounted) return;
+      final activeStep = switch (request.status) {
+        ServiceRequestStatus.completed => 2,
+        ServiceRequestStatus.inProgress ||
+        ServiceRequestStatus.waitingApproval =>
+          1,
+        _ => 0,
+      };
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
         builder: (_) => SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(AppSpacing.x4),
             child: Builder(builder: (sheetContext) {
               final latitude = double.tryParse('${tracking?['latitude']}');
               final longitude = double.tryParse('${tracking?['longitude']}');
@@ -1005,19 +1587,50 @@ class _RequestCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Lokasi teknisi',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-                  const SizedBox(height: 12),
-                  Text('Status: ${tracking?['status'] ?? 'not_started'}'),
-                  Text('ETA: ${tracking?['eta_minutes'] ?? '-'} menit'),
-                  Text(tracking?['note']?.toString() ?? ''),
+                  Text(
+                    'Progres servis',
+                    style: Theme.of(sheetContext).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: AppSpacing.x4),
+                  _ServiceTrackingStepper(activeStep: activeStep),
+                  const SizedBox(height: AppSpacing.x4),
+                  Row(
+                    children: [
+                      SerfixStatusBadge(
+                        label: request.status.label,
+                        color: _statusColor(
+                          request.status,
+                          isDark: Theme.of(sheetContext).brightness ==
+                              Brightness.dark,
+                        ),
+                      ),
+                      const Spacer(),
+                      Icon(
+                        Icons.schedule_outlined,
+                        size: AppSpacing.iconSmall,
+                        color: Theme.of(sheetContext).colorScheme.primary,
+                      ),
+                      const SizedBox(width: AppSpacing.x1),
+                      Text(
+                        'ETA ${tracking?['eta_minutes'] ?? '-'} menit',
+                        style: Theme.of(sheetContext).textTheme.labelLarge,
+                      ),
+                    ],
+                  ),
+                  if (tracking?['note']?.toString().isNotEmpty == true) ...[
+                    const SizedBox(height: AppSpacing.x3),
+                    Text(
+                      tracking!['note'].toString(),
+                      style: Theme.of(sheetContext).textTheme.bodyMedium,
+                    ),
+                  ],
                   if (position != null) ...[
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.x4),
                     SizedBox(
-                      height: 260,
+                      height: AppSpacing.trackingMapHeight,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusLg),
                         child: FlutterMap(
                           options: MapOptions(
                             initialCenter: position,
@@ -1032,12 +1645,12 @@ class _RequestCard extends StatelessWidget {
                             MarkerLayer(markers: [
                               Marker(
                                 point: position,
-                                width: 38,
-                                height: 38,
+                                width: AppSpacing.markerSize,
+                                height: AppSpacing.markerSize,
                                 child: const Icon(
                                   Icons.location_pin,
-                                  color: Color(0xFF0F8B80),
-                                  size: 38,
+                                  color: AppColors.primary,
+                                  size: AppSpacing.iconExtraLarge,
                                 ),
                               ),
                             ]),
@@ -1182,7 +1795,9 @@ class _RequestCard extends StatelessWidget {
 }
 
 class _RequestFormSheet extends StatefulWidget {
-  const _RequestFormSheet();
+  const _RequestFormSheet({this.initialCategoryId});
+
+  final int? initialCategoryId;
 
   @override
   State<_RequestFormSheet> createState() => _RequestFormSheetState();
@@ -1197,6 +1812,8 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
   int? _categoryId;
   late DateTime _scheduledAt;
   bool _saving = false;
+  XFile? _photo;
+  Uint8List? _photoBytes;
 
   @override
   void initState() {
@@ -1204,7 +1821,8 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
     final tomorrow = DateTime.now().add(const Duration(days: 1));
     _scheduledAt = DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9);
     final categories = context.read<SerfixProvider>().categories;
-    _categoryId = categories.isEmpty ? null : categories.first.id;
+    _categoryId = widget.initialCategoryId ??
+        (categories.isEmpty ? null : categories.first.id);
   }
 
   @override
@@ -1234,18 +1852,18 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
             children: [
               Center(
                 child: Container(
-                  width: 42,
-                  height: 4,
+                  width: AppSpacing.dragHandleWidth,
+                  height: AppSpacing.dragHandleHeight,
                   decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(10),
+                    color: AppColors.neutral300,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusPill),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: AppSpacing.x4),
               Text('Ajukan layanan servis',
                   style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.x4),
               DropdownButtonFormField<int>(
                 initialValue: _categoryId,
                 decoration: const InputDecoration(labelText: 'Jenis layanan'),
@@ -1260,12 +1878,49 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
                 validator: (value) =>
                     value == null ? 'Pilih jenis layanan' : null,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.x2),
               _input(_device, 'Perangkat', 'Contoh: AC Daikin 1 PK'),
               _input(_issue, 'Keluhan', 'Jelaskan kendala yang dialami'),
+              const SizedBox(height: AppSpacing.x3),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: _saving ? null : _pickPhoto,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text(
+                    _photo == null ? 'Tambah foto perangkat' : 'Ganti foto',
+                  ),
+                ),
+              ),
+              if (_photoBytes != null) ...[
+                const SizedBox(height: AppSpacing.x2),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  child: Image.memory(
+                    _photoBytes!,
+                    height: 144,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    semanticLabel: 'Foto perangkat yang dipilih',
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: _saving
+                        ? null
+                        : () => setState(() {
+                              _photo = null;
+                              _photoBytes = null;
+                            }),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Hapus foto'),
+                  ),
+                ),
+              ],
               _input(_address, 'Alamat servis', 'Alamat lengkap'),
               _input(_area, 'Area layanan', 'Contoh: Bandung'),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpacing.x2),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.event_outlined),
@@ -1280,19 +1935,12 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
                 subtitle:
                     'Estimasi awal terlihat sebelum servis. Perubahan harga menunggu persetujuan Anda.',
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _saving || categories.isEmpty ? null : _submit,
-                  icon: _saving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.send_outlined),
-                  label: Text(_saving ? 'Mengirim...' : 'Kirim pengajuan'),
-                ),
+              const SizedBox(height: AppSpacing.x3),
+              SerfixPrimaryButton(
+                label: 'Kirim pengajuan',
+                icon: Icons.send_outlined,
+                isLoading: _saving,
+                onPressed: _saving || categories.isEmpty ? null : _submit,
               ),
             ],
           ),
@@ -1311,6 +1959,27 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
               value == null || value.trim().isEmpty ? 'Wajib diisi' : null,
         ),
       );
+
+  Future<void> _pickPhoto() async {
+    try {
+      final photo = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 84,
+      );
+      if (photo == null || !mounted) return;
+      final bytes = await photo.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _photo = photo;
+        _photoBytes = bytes;
+      });
+    } catch (error) {
+      if (mounted) {
+        _message(context, 'Foto belum dapat dipilih: $error', error: true);
+      }
+    }
+  }
 
   Future<void> _pickSchedule() async {
     final now = DateTime.now();
@@ -1334,17 +2003,64 @@ class _RequestFormSheetState extends State<_RequestFormSheet> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await context.read<SerfixProvider>().createRequest(
-            categoryId: _categoryId!,
-            deviceName: _device.text.trim(),
-            issue: _issue.text.trim(),
-            address: _address.text.trim(),
-            area: _area.text.trim(),
-            scheduledAt: _scheduledAt,
-          );
+      final provider = context.read<SerfixProvider>();
+      final existingIds =
+          provider.requests.map((request) => request.id).toSet();
+      final categoryId = _categoryId!;
+      final deviceName = _device.text.trim();
+      final issue = _issue.text.trim();
+      final address = _address.text.trim();
+      final area = _area.text.trim();
+      await provider.createRequest(
+        categoryId: categoryId,
+        deviceName: deviceName,
+        issue: issue,
+        address: address,
+        area: area,
+        scheduledAt: _scheduledAt,
+      );
+      if (!mounted) return;
+      String? photoMessage;
+      final photo = _photo;
+      final photoBytes = _photoBytes;
+      if (photo != null && photoBytes != null) {
+        final createdRequests = provider.requests
+            .where(
+              (request) =>
+                  !existingIds.contains(request.id) &&
+                  request.categoryId == categoryId &&
+                  request.device == deviceName &&
+                  request.issue == issue &&
+                  request.address == address &&
+                  request.area == area,
+            )
+            .toList();
+        if (createdRequests.isEmpty) {
+          photoMessage =
+              'Pengajuan berhasil, tetapi foto belum tertaut. Anda dapat '
+              'menambahkannya dari detail layanan.';
+        } else {
+          createdRequests.sort((a, b) => b.id.compareTo(a.id));
+          try {
+            await provider.uploadAttachment(
+              requestId: createdRequests.first.id,
+              kind: 'customer_evidence',
+              fileName: photo.name,
+              base64: base64Encode(photoBytes),
+            );
+          } catch (error) {
+            photoMessage =
+                'Pengajuan berhasil, tetapi foto belum terunggah: $error';
+          }
+        }
+      }
       if (!mounted) return;
       Navigator.of(context).pop();
-      _message(context, 'Pengajuan servis berhasil dikirim.');
+      _message(
+        context,
+        photoMessage ?? 'Pengajuan servis berhasil dikirim.',
+        error: photoMessage != null,
+      );
     } catch (error) {
       if (mounted) _message(context, error.toString(), error: true);
     } finally {
@@ -1485,77 +2201,106 @@ class _AccountPage extends StatelessWidget {
     final provider = context.watch<SerfixProvider>();
     final role = provider.role;
     return ListView(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(AppSpacing.x4),
       children: [
-        CircleAvatar(
-          radius: 34,
-          backgroundColor: const Color(0xFFE0F2F1),
-          child: Icon(
-            user?.isGuest == true ? Icons.person_outline : _roleIcon(role),
-            size: 34,
-            color: const Color(0xFF0F8B80),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.x4),
+            child: Row(
+              children: [
+                Container(
+                  width: AppSpacing.appLogoSize,
+                  height: AppSpacing.appLogoSize,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: Icon(
+                    user?.isGuest == true
+                        ? Icons.person_outline
+                        : _roleIcon(role),
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user?.name ?? 'Pengguna SerFix',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.x1),
+                      Text(
+                        user?.email ?? 'Akun SerFix',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
+                ),
+                SerfixStatusBadge(
+                  label: user?.isGuest == true ? 'Tamu' : role.label,
+                  color: AppColors.primary,
+                  icon: Icons.verified_user_outlined,
+                ),
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 12),
-        Center(
-          child: Text(user?.name ?? 'Pengguna SerFix',
-              style: Theme.of(context).textTheme.titleLarge),
-        ),
-        Center(child: Text(user?.email ?? '')),
-        const SizedBox(height: 16),
-        _InfoTile(
-          icon: Icons.badge_outlined,
-          title: 'Peran aktif',
-          subtitle: user?.isGuest == true ? 'Tamu' : role.label,
-        ),
         if (role == SerfixRole.technician) ...[
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.x3),
           _InventoryList(parts: provider.parts),
         ],
         if (role == SerfixRole.customer && user?.isGuest != true) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.x4),
           _AssetList(assets: provider.assets, categories: provider.categories),
         ],
         if (user?.isGuest == true) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.x4),
           const _InfoTile(
             icon: Icons.lock_outline,
             title: 'Fitur akun belum tersedia',
             subtitle:
                 'Masuk atau daftar untuk mengajukan servis, menyimpan perangkat, dan melihat garansi.',
           ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
+          const SizedBox(height: AppSpacing.x2),
+          SerfixPrimaryButton(
+            label: 'Masuk atau daftar',
+            icon: Icons.login,
             onPressed: context.read<AuthProvider>().logout,
-            icon: const Icon(Icons.login),
-            label: const Text('Masuk / Daftar'),
           ),
         ],
         if (role == SerfixRole.admin || role == SerfixRole.manager) ...[
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.x4),
           _TechnicianReportList(report: provider.technicianReport),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.x4),
           _PaymentList(payments: provider.payments, canVerify: true),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.x4),
           _InventoryList(
             parts: provider.parts,
             canEdit: role == SerfixRole.admin,
           ),
           if (role == SerfixRole.admin) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.x4),
             _StaffList(staff: provider.staff, categories: provider.categories),
           ],
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: AppSpacing.x6),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const SettingsScreen()),
           ),
           icon: const Icon(Icons.settings_outlined),
-          label: const Text('Pengaturan'),
+          label: const Text('Pengaturan & privasi'),
         ),
-        OutlinedButton.icon(
+        TextButton.icon(
           onPressed: () => context.read<AuthProvider>().logout(),
+          style: TextButton.styleFrom(foregroundColor: AppColors.error),
           icon: const Icon(Icons.logout),
           label: const Text('Keluar'),
         ),
@@ -2051,13 +2796,16 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
   @override
   Widget build(BuildContext context) => AlertDialog(
         title: const Text('Tugaskan teknisi'),
-        content: SizedBox(
-          width: 420,
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${widget.request.service} · ${widget.request.area}'),
+              Text(
+                '${widget.request.service} · ${widget.request.area}',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('Jadwal'),
@@ -2069,30 +2817,56 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
                 future: _technicians,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const LinearProgressIndicator();
+                    return const Column(
+                      children: [
+                        SerfixSkeleton(height: AppSpacing.serviceIconBox),
+                        SizedBox(height: AppSpacing.x2),
+                        SerfixSkeleton(height: AppSpacing.serviceIconBox),
+                      ],
+                    );
                   }
                   if (snapshot.hasError) {
-                    return Text('Gagal mencari teknisi: ${snapshot.error}');
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Teknisi belum dapat dimuat. Periksa koneksi lalu '
+                          'coba lagi.',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton.icon(
+                          onPressed: () => setState(_loadTechnicians),
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Coba lagi'),
+                        ),
+                      ],
+                    );
                   }
                   final available = snapshot.data ?? [];
                   if (available.isEmpty) {
                     return const Text(
-                      'Tidak ada teknisi sesuai keahlian/area pada jadwal ini.',
+                      'Tidak ada teknisi sesuai keahlian dan area pada jadwal '
+                      'ini. Pilih waktu lain atau hubungi SerFix.',
                     );
                   }
-                  return DropdownButtonFormField<int>(
-                    initialValue:
-                        available.any((tech) => tech.id == _technicianId)
-                            ? _technicianId
-                            : null,
-                    decoration: const InputDecoration(labelText: 'Teknisi'),
-                    items: available
-                        .map((tech) => DropdownMenuItem(
-                              value: tech.id,
-                              child: Text('${tech.name} · ${tech.area}'),
-                            ))
-                        .toList(),
-                    onChanged: (id) => setState(() => _technicianId = id),
+                  return ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: available.length,
+                      separatorBuilder: (_, __) =>
+                          const SizedBox(height: AppSpacing.x2),
+                      itemBuilder: (context, index) {
+                        final technician = available[index];
+                        return _TechnicianOptionCard(
+                          technician: technician,
+                          selected: _technicianId == technician.id,
+                          onTap: () => setState(
+                            () => _technicianId = technician.id,
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               ),
@@ -2150,6 +2924,108 @@ class _AssignmentDialogState extends State<_AssignmentDialog> {
   }
 }
 
+class _TechnicianOptionCard extends StatelessWidget {
+  const _TechnicianOptionCard({
+    required this.technician,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SerfixTechnician technician;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = theme.colorScheme.primary;
+    final border = theme.brightness == Brightness.light
+        ? AppColors.neutral200
+        : AppColors.darkBorder;
+
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '${technician.name}, ${technician.area}, ${technician.skills}',
+      child: Material(
+        color: selected
+            ? accent.withValues(alpha: 0.08)
+            : theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          child: Container(
+            constraints:
+                const BoxConstraints(minHeight: AppSpacing.tapTarget + 8),
+            padding: const EdgeInsets.all(AppSpacing.x3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: selected ? accent : border,
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: AppSpacing.serviceIconBox,
+                  height: AppSpacing.serviceIconBox,
+                  decoration: BoxDecoration(
+                    color: accent.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.engineering_outlined,
+                    color: accent,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x3),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        technician.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      Text(
+                        technician.area,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      if (technician.skills.isNotEmpty)
+                        Text(
+                          technician.skills,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x2),
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  color: selected ? accent : AppColors.neutral400,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _HeroCard extends StatelessWidget {
   const _HeroCard({
     required this.title,
@@ -2165,29 +3041,81 @@ class _HeroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(AppSpacing.x4),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
-            colors: [Color(0xFF0F8B80), Color(0xFF075C58)],
+            colors: [AppColors.primary, AppColors.secondary],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(22),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Icon(Icons.ac_unit_rounded, color: Colors.white, size: 30),
-            const SizedBox(height: 12),
-            Text(title,
-                style: const TextStyle(
+            Row(
+              children: [
+                Container(
+                  width: AppSpacing.appLogoSize,
+                  height: AppSpacing.appLogoSize,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                  child: const Icon(
+                    Icons.ac_unit_outlined,
+                    color: AppColors.accent,
+                    size: AppSpacing.iconLarge,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.x3),
+                Expanded(
+                  child: Text(
+                    'LAYANAN RUMAH TANGGA',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.86),
+                          letterSpacing: 0.6,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.x4),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: Colors.white,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text(subtitle, style: const TextStyle(color: Colors.white70)),
-            const SizedBox(height: 14),
-            FilledButton.tonal(onPressed: onPressed, child: Text(buttonLabel)),
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.x1),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+            ),
+            const SizedBox(height: AppSpacing.x4),
+            SizedBox(
+              height: AppSpacing.tapTarget,
+              child: FilledButton.icon(
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  onPressed();
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: AppColors.secondary,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                  ),
+                ),
+                icon: const Icon(
+                  Icons.arrow_forward_rounded,
+                  size: AppSpacing.iconSmall,
+                ),
+                label: Text(buttonLabel),
+              ),
+            ),
           ],
         ),
       );
@@ -2207,11 +3135,14 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.x3,
+            vertical: AppSpacing.x2,
+          ),
           child: Row(
             children: [
-              Icon(icon, size: 20, color: const Color(0xFF0F8B80)),
-              const SizedBox(width: 9),
+              Icon(icon, size: 20, color: AppColors.primary),
+              const SizedBox(width: AppSpacing.x2),
               Expanded(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -2237,7 +3168,7 @@ class _SectionHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(title, style: Theme.of(context).textTheme.titleMedium);
+      Text(title, style: Theme.of(context).textTheme.titleSmall);
 }
 
 class _InfoTile extends StatelessWidget {
@@ -2254,9 +3185,9 @@ class _InfoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Card(
         child: ListTile(
-          leading: Icon(icon, color: const Color(0xFF0F8B80)),
-          title:
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          minVerticalPadding: AppSpacing.x3,
+          leading: Icon(icon, color: AppColors.primary),
+          title: Text(title, style: Theme.of(context).textTheme.titleSmall),
           subtitle: Text(subtitle),
         ),
       );
@@ -2286,25 +3217,11 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = switch (status) {
-      ServiceRequestStatus.requested ||
-      ServiceRequestStatus.waitingApproval =>
-        const Color(0xFFB76500),
-      ServiceRequestStatus.assigned => const Color(0xFF2868A8),
-      ServiceRequestStatus.inProgress => const Color(0xFF0F8B80),
-      ServiceRequestStatus.completed => const Color(0xFF23865F),
-      ServiceRequestStatus.cancelled => const Color(0xFF72808C),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status.label,
-        style:
-            TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+    return SerfixStatusBadge(
+      label: status.label,
+      color: _statusColor(
+        status,
+        isDark: Theme.of(context).brightness == Brightness.dark,
       ),
     );
   }
@@ -2320,27 +3237,32 @@ class _MiniTag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F716A).withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: const Color(0xFF0F716A)),
-            const SizedBox(width: 4),
+            Icon(icon, size: 13, color: AppColors.primary),
+            const SizedBox(width: AppSpacing.x1),
             Text(text,
-                style: const TextStyle(fontSize: 11, color: Color(0xFF0F716A))),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: AppColors.primary,
+                    )),
           ],
         ),
       );
 }
 
-Future<void> _showRequestForm(BuildContext context) =>
+Future<void> _showRequestForm(
+  BuildContext context, {
+  int? initialCategoryId,
+}) =>
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      builder: (_) => const _RequestFormSheet(),
+      builder: (_) => _RequestFormSheet(initialCategoryId: initialCategoryId),
     );
 
 Future<void> _assign(
@@ -2753,6 +3675,35 @@ IconData _roleIcon(SerfixRole role) => switch (role) {
       SerfixRole.manager => Icons.analytics_outlined,
     };
 
+Color _statusColor(ServiceRequestStatus status, {bool isDark = false}) =>
+    switch (status) {
+      ServiceRequestStatus.requested ||
+      ServiceRequestStatus.waitingApproval =>
+        isDark ? const Color(0xFFFFBE6B) : AppColors.warning,
+      ServiceRequestStatus.assigned =>
+        isDark ? const Color(0xFF8CC8FF) : AppColors.secondary,
+      ServiceRequestStatus.inProgress =>
+        isDark ? AppColors.accent : AppColors.primary,
+      ServiceRequestStatus.completed =>
+        isDark ? const Color(0xFF55D6A4) : AppColors.success,
+      ServiceRequestStatus.cancelled =>
+        isDark ? AppColors.neutral300 : AppColors.neutral500,
+    };
+
+IconData _categoryIcon(String name) {
+  final value = name.toLowerCase();
+  if (RegExp(r'\bac\b').hasMatch(value) || value.contains('pendingin')) {
+    return Icons.ac_unit_outlined;
+  }
+  if (value.contains('cuci') || value.contains('washing')) {
+    return Icons.local_laundry_service_outlined;
+  }
+  if (value.contains('kulkas') || value.contains('refriger')) {
+    return Icons.kitchen_outlined;
+  }
+  return Icons.handyman_outlined;
+}
+
 SerfixRole _roleFromString(String role) => switch (role) {
       'technician' => SerfixRole.technician,
       'admin' => SerfixRole.admin,
@@ -2768,8 +3719,8 @@ String _subtitle(SerfixRole role) => switch (role) {
     };
 
 IconData _serviceIcon(String service) => service.toLowerCase().contains('ac')
-    ? Icons.ac_unit
-    : Icons.home_repair_service;
+    ? Icons.ac_unit_outlined
+    : Icons.handyman_outlined;
 
 String _money(num amount) {
   final value = amount.round().toString();

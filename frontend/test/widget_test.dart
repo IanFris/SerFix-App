@@ -2,9 +2,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:serfix/models/user.dart';
 import 'package:serfix/providers/auth_provider.dart';
 import 'package:serfix/providers/serfix_provider.dart';
+import 'package:serfix/providers/settings_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('onboarding completion is persisted between app launches', () async {
+    SharedPreferences.setMockInitialValues({});
+    final settings = SettingsProvider();
+    while (!settings.isInitialized) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    expect(settings.hasSeenOnboarding, isFalse);
+    await settings.completeOnboarding();
+    expect(settings.hasSeenOnboarding, isTrue);
+
+    final restored = SettingsProvider();
+    while (!restored.isInitialized) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(restored.hasSeenOnboarding, isTrue);
+  });
+
   test('guest session enters the app without an API token', () async {
     SharedPreferences.setMockInitialValues({});
     final auth = AuthProvider();

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../widgets/serfix_components.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -37,7 +40,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(auth.errorMessage ?? 'Login gagal.'),
-          backgroundColor: const Color(0xFFEF4444),
+          backgroundColor: AppColors.error,
         ),
       );
     }
@@ -119,195 +122,226 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
+      appBar: SerfixAppBar(
+        title: 'SerFix',
+        subtitle: 'Servis rumah tepercaya',
         actions: [
           IconButton(
-            style: IconButton.styleFrom(
-              backgroundColor: Theme.of(context).cardColor,
+            constraints: const BoxConstraints(
+              minWidth: AppSpacing.tapTarget,
+              minHeight: AppSpacing.tapTarget,
             ),
             icon: const Icon(Icons.tune_rounded),
-            tooltip: 'Konfigurasi Server URL',
+            tooltip: 'Konfigurasi server',
             onPressed: _showServerConfigDialog,
           ),
-          const SizedBox(width: 8),
         ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF19A394), Color(0xFF08675F)],
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 460),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.x4,
+                AppSpacing.x4,
+                AppSpacing.x4,
+                AppSpacing.x8,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.x6),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.primary, AppColors.secondary],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusXl),
                       ),
-                      borderRadius: BorderRadius.circular(25),
-                      boxShadow: [
-                        BoxShadow(
-                          color:
-                              const Color(0xFF0F8B80).withValues(alpha: 0.25),
-                          blurRadius: 22,
-                          offset: const Offset(0, 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.14),
+                              borderRadius: BorderRadius.circular(
+                                AppSpacing.radiusLg,
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.ac_unit_outlined,
+                              size: AppSpacing.iconExtraLarge,
+                              color: AppColors.accent,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.x4),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'COOL HOME, CARE YOU CAN TRUST',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelMedium
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.86,
+                                        ),
+                                        letterSpacing: 0.45,
+                                      ),
+                                ),
+                                const SizedBox(height: AppSpacing.x1),
+                                Text(
+                                  'Rumah kembali nyaman.',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x6),
+                    Text(
+                      'Servis rumah,',
+                      style: Theme.of(context).textTheme.headlineSmall,
+                    ),
+                    Text(
+                      'terpercaya dan transparan.',
+                      style:
+                          Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                color: AppColors.primary,
+                              ),
+                    ),
+                    const SizedBox(height: AppSpacing.x2),
+                    Text(
+                      'Pesan servis AC dan elektronik, pantau prosesnya, '
+                      'dan ketahui biaya sebelum teknisi mulai bekerja.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.neutral600,
+                          ),
+                    ),
+                    const SizedBox(height: AppSpacing.x6),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.x4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Masuk ke akun',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: AppSpacing.x4),
+                            TextFormField(
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              textInputAction: TextInputAction.next,
+                              decoration: const InputDecoration(
+                                labelText: 'Alamat email',
+                                hintText: 'nama@email.com',
+                                prefixIcon: Icon(Icons.alternate_email_rounded),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Email wajib diisi';
+                                }
+                                if (!value.contains('@')) {
+                                  return 'Format email tidak valid';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.x3),
+                            TextFormField(
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onFieldSubmitted: (_) =>
+                                  auth.isLoading ? null : _login(),
+                              decoration: InputDecoration(
+                                labelText: 'Password',
+                                prefixIcon:
+                                    const Icon(Icons.lock_outline_rounded),
+                                suffixIcon: IconButton(
+                                  tooltip: _obscurePassword
+                                      ? 'Tampilkan password'
+                                      : 'Sembunyikan password',
+                                  icon: Icon(
+                                    _obscurePassword
+                                        ? Icons.visibility_off_outlined
+                                        : Icons.visibility_outlined,
+                                  ),
+                                  onPressed: () => setState(
+                                    () => _obscurePassword = !_obscurePassword,
+                                  ),
+                                ),
+                              ),
+                              validator: (value) {
+                                if (value == null || value.isEmpty) {
+                                  return 'Password wajib diisi';
+                                }
+                                if (value.length < 6) {
+                                  return 'Password minimal 6 karakter';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: AppSpacing.x4),
+                            SerfixPrimaryButton(
+                              label: 'Masuk',
+                              icon: Icons.arrow_forward_rounded,
+                              isLoading: auth.isLoading,
+                              onPressed: auth.isLoading ? null : _login,
+                            ),
+                            const SizedBox(height: AppSpacing.x2),
+                            OutlinedButton(
+                              onPressed: auth.isLoading
+                                  ? null
+                                  : () => context
+                                      .read<AuthProvider>()
+                                      .startGuestSession(),
+                              child: const Text('Lanjutkan sebagai tamu'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.x3),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          'Belum punya akun?',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('Daftar sekarang'),
                         ),
                       ],
                     ),
-                    child: const Icon(
-                      Icons.home_repair_service_rounded,
-                      size: 38,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                const Text(
-                  'SerFix',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Color(0xFF0F8B80),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: 2.2,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                const Text(
-                  'Servis rumah,',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 27,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                  ),
-                ),
-                const Text(
-                  'terpercaya, transparan.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 27,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.8,
-                    color: Color(0xFF0F8B80),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Ajukan servis AC dan elektronik, lalu pantau teknisi, biaya, dan garansi dalam satu aplikasi.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: Color(0xFF72808C),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                const Text(
-                  'Masuk ke akun',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'Alamat email',
-                    hintText: 'nama@email.com',
-                    prefixIcon: Icon(Icons.alternate_email_rounded),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.trim().isEmpty) {
-                      return 'Email wajib diisi';
-                    }
-                    if (!val.contains('@')) return 'Format email tidak valid';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => auth.isLoading ? null : _login(),
-                  decoration: InputDecoration(
-                    labelText: 'Password',
-                    prefixIcon: const Icon(Icons.lock_outline_rounded),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword
-                            ? Icons.visibility_off
-                            : Icons.visibility,
-                      ),
-                      onPressed: () =>
-                          setState(() => _obscurePassword = !_obscurePassword),
-                    ),
-                  ),
-                  validator: (val) {
-                    if (val == null || val.isEmpty) {
-                      return 'Password wajib diisi';
-                    }
-                    if (val.length < 6) return 'Password minimal 6 karakter';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: auth.isLoading ? null : _login,
-                  child: auth.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text('Masuk'),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_forward_rounded, size: 18),
-                          ],
-                        ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton(
-                  onPressed: auth.isLoading
-                      ? null
-                      : () => context.read<AuthProvider>().startGuestSession(),
-                  child: const Text('Lanjutkan sebagai tamu'),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Belum punya akun?'),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                              builder: (_) => const RegisterScreen()),
-                        );
-                      },
-                      child: const Text(
-                        'Daftar Sekarang',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                    ),
                   ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

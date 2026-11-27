@@ -6,13 +6,16 @@ import '../core/constants/api_constants.dart';
 class SettingsProvider extends ChangeNotifier {
   static const _themeModeKey = 'autolog_theme_mode';
   static const _apiBaseUrlKey = 'autolog_api_base_url';
+  static const _onboardingSeenKey = 'serfix_onboarding_seen';
 
   ThemeMode _themeMode = ThemeMode.system;
   bool _isInitialized = false;
+  bool _hasSeenOnboarding = false;
   String? _errorMessage;
 
   ThemeMode get themeMode => _themeMode;
   bool get isInitialized => _isInitialized;
+  bool get hasSeenOnboarding => _hasSeenOnboarding;
   String get apiBaseUrl => ApiConstants.baseUrl;
   String? get errorMessage => _errorMessage;
 
@@ -24,6 +27,7 @@ class SettingsProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedTheme = prefs.getString(_themeModeKey);
+      _hasSeenOnboarding = prefs.getBool(_onboardingSeenKey) ?? false;
       _themeMode = switch (savedTheme) {
         'light' => ThemeMode.light,
         'dark' => ThemeMode.dark,
@@ -45,6 +49,15 @@ class SettingsProvider extends ChangeNotifier {
       _isInitialized = true;
       notifyListeners();
     }
+  }
+
+  Future<void> completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!await prefs.setBool(_onboardingSeenKey, true)) {
+      throw StateError('Status onboarding tidak dapat disimpan.');
+    }
+    _hasSeenOnboarding = true;
+    notifyListeners();
   }
 
   Future<bool> setThemeMode(ThemeMode mode) async {
