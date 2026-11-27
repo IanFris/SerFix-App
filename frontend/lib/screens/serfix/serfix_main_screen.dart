@@ -928,24 +928,23 @@ class _MessageList extends StatelessWidget {
 
   static Future<void> _openChat(
       BuildContext context, SerfixRequest request) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => _ChatSheet(request: request),
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => _ChatScreen(request: request),
+      ),
     );
   }
 }
 
-class _ChatSheet extends StatefulWidget {
-  const _ChatSheet({required this.request});
+class _ChatScreen extends StatefulWidget {
+  const _ChatScreen({required this.request});
   final SerfixRequest request;
 
   @override
-  State<_ChatSheet> createState() => _ChatSheetState();
+  State<_ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatSheetState extends State<_ChatSheet> {
+class _ChatScreenState extends State<_ChatScreen> {
   final _messageController = TextEditingController();
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
@@ -1000,17 +999,28 @@ class _ChatSheetState extends State<_ChatSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.72,
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Kembali',
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Chat'),
+            Text(
+              widget.request.service,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        top: false,
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
-              child: Text('Chat · ${widget.request.service}',
-                  style: Theme.of(context).textTheme.titleMedium),
-            ),
             Expanded(
               child: _loading
                   ? const Padding(
