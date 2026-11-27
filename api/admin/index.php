@@ -25,6 +25,9 @@ $counts = [
     'technicians' => (int)$db->query('SELECT COUNT(*) FROM technician_profiles WHERE is_available = 1')->fetchColumn(),
     'requests' => (int)$db->query('SELECT COUNT(*) FROM service_requests')->fetchColumn(),
     'open' => (int)$db->query('SELECT COUNT(*) FROM service_requests WHERE status IN ("requested", "assigned", "in_progress", "waiting_approval")')->fetchColumn(),
+    'pending_assignment' => (int)$db->query('SELECT COUNT(*) FROM service_requests WHERE status = "requested"')->fetchColumn(),
+    'waiting_approval' => (int)$db->query('SELECT COUNT(*) FROM service_requests WHERE status = "waiting_approval"')->fetchColumn(),
+    'in_progress' => (int)$db->query('SELECT COUNT(*) FROM service_requests WHERE status = "in_progress"')->fetchColumn(),
     'revenue' => (float)$db->query('SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = "paid"')->fetchColumn(),
 ];
 $categories = $db->query(
@@ -101,6 +104,19 @@ function admin_money(mixed $value): string
     return 'Rp ' . number_format((float)$value, 0, ',', '.');
 }
 
+function admin_status_label(string $status): string
+{
+    return match ($status) {
+        'requested' => 'Menunggu teknisi',
+        'assigned' => 'Terjadwal',
+        'in_progress' => 'Sedang dikerjakan',
+        'waiting_approval' => 'Menunggu persetujuan',
+        'completed' => 'Selesai',
+        'cancelled' => 'Dibatalkan',
+        default => $status,
+    };
+}
+
 function admin_page_url(string $page): string
 {
     return 'index.php?' . http_build_query(['page' => $page]);
@@ -139,23 +155,62 @@ function admin_page_url(string $page): string
     <section class="page-content">
       <?php if ($flash): ?><div class="notice <?= admin_escape($flash['type']) ?>" role="status"><?= admin_escape($flash['message']) ?></div><?php endif; ?>
       <?php if ($page === 'overview'): ?>
-        <div class="page-heading"><div><p class="eyebrow">RINGKASAN OPERASIONAL</p><h1>Dashboard SerFix</h1><p class="muted">Jadwal teknisi, pengajuan, pembayaran, dan garansi.</p></div><span class="date-pill"><?= admin_escape(date('d M Y')) ?></span></div>
+        <section class="dashboard-hero">
+          <div class="dashboard-hero-copy">
+            <span class="hero-kicker"><span></span> PUSAT KENDALI OPERASIONAL</span>
+            <h1>Halo, Admin<span>.</span></h1>
+            <p>Pantau layanan, tim teknisi, dan pembayaran SerFix dari satu tempat.</p>
+            <div class="hero-actions">
+              <a class="hero-button hero-button-primary" href="<?= admin_escape(admin_page_url('requests')) ?>">Lihat pengajuan <span aria-hidden="true">→</span></a>
+              <a class="hero-button hero-button-secondary" href="<?= admin_escape(admin_page_url('staff')) ?>">Kelola tim</a>
+            </div>
+          </div>
+          <div class="dashboard-hero-art" aria-hidden="true">
+            <div class="hero-orbit hero-orbit-one"></div>
+            <div class="hero-orbit hero-orbit-two"></div>
+            <div class="hero-mark">S</div>
+            <div class="hero-floating-card"><span class="hero-floating-icon">✦</span><span><strong>SerFix Care</strong><small>Rumah nyaman, terlayani.</small></span></div>
+            <div class="hero-date"><span>HARI INI</span><strong><?= admin_escape(date('d M Y')) ?></strong></div>
+          </div>
+        </section>
         <div class="stats-grid">
           <?php foreach ([
-              'customers' => ['Pelanggan', '◎', 'staff'],
-              'technicians' => ['Teknisi tersedia', '◇', 'staff'],
-              'requests' => ['Total pengajuan', '↻', 'requests'],
-              'open' => ['Layanan aktif', '▤', 'requests'],
-          ] as $key => [$label, $icon, $target]): ?>
-            <a class="stat-card" href="<?= admin_escape(admin_page_url($target)) ?>"><span class="stat-icon"><?= admin_escape($icon) ?></span><span class="stat-label"><?= admin_escape($label) ?></span><strong><?= number_format($counts[$key]) ?></strong><span class="stat-link">Lihat data <span>→</span></span></a>
+              'customers' => ['Pelanggan', '◎', 'staff', 'stat-customer'],
+              'technicians' => ['Teknisi tersedia', '◇', 'staff', 'stat-technician'],
+              'requests' => ['Total pengajuan', '↻', 'requests', 'stat-request'],
+              'open' => ['Layanan aktif', '▤', 'requests', 'stat-active'],
+          ] as $key => [$label, $icon, $target, $class]): ?>
+            <a class="stat-card <?= admin_escape($class) ?>" href="<?= admin_escape(admin_page_url($target)) ?>"><span class="stat-icon"><?= admin_escape($icon) ?></span><span class="stat-label"><?= admin_escape($label) ?></span><strong><?= number_format($counts[$key]) ?></strong><span class="stat-link">Buka ringkasan <span>→</span></span></a>
           <?php endforeach; ?>
         </div>
-        <section class="panel revenue-panel"><p class="eyebrow">PEMBAYARAN TERVERIFIKASI</p><h2><?= admin_escape(admin_money($counts['revenue'])) ?></h2><p class="muted">Jumlah pembayaran yang sudah dikonfirmasi admin.</p></section>
-        <section class="panel data-panel" style="margin-top:18px">
+        <div class="overview-grid">
+          <section class="panel revenue-panel">
+            <div class="revenue-heading"><span class="revenue-icon">↗</span><span class="eyebrow">PEMBAYARAN TERVERIFIKASI</span></div>
+            <h2><?= admin_escape(admin_money($counts['revenue'])) ?></h2>
+            <p class="muted">Total dana yang telah dikonfirmasi admin.</p>
+            <a href="<?= admin_escape(admin_page_url('payments')) ?>">Lihat pembayaran <span aria-hidden="true">→</span></a>
+            <span class="revenue-mark" aria-hidden="true">Rp</span>
+          </section>
+          <section class="panel workload-panel">
+            <div class="panel-heading"><div><h2>Fokus operasional</h2><p class="muted">Yang perlu dipantau hari ini</p></div><a class="text-link" href="<?= admin_escape(admin_page_url('requests')) ?>">Semua →</a></div>
+            <div class="workload-list">
+              <a class="workload-row" href="<?= admin_escape(admin_page_url('requests')) ?>">
+                <span class="workload-icon workload-icon-amber">↗</span><span class="workload-copy"><strong>Menunggu teknisi</strong><small>Pengajuan baru perlu ditugaskan</small></span><b><?= number_format($counts['pending_assignment']) ?></b>
+              </a>
+              <a class="workload-row" href="<?= admin_escape(admin_page_url('requests')) ?>">
+                <span class="workload-icon workload-icon-blue">Rp</span><span class="workload-copy"><strong>Menunggu persetujuan</strong><small>Estimasi biaya menunggu pelanggan</small></span><b><?= number_format($counts['waiting_approval']) ?></b>
+              </a>
+              <a class="workload-row" href="<?= admin_escape(admin_page_url('requests')) ?>">
+                <span class="workload-icon workload-icon-green">⌁</span><span class="workload-copy"><strong>Sedang dikerjakan</strong><small>Servis yang aktif ditangani</small></span><b><?= number_format($counts['in_progress']) ?></b>
+              </a>
+            </div>
+          </section>
+        </div>
+        <section class="panel data-panel dashboard-requests">
           <div class="panel-heading"><div><h2>Pengajuan terbaru</h2><p class="muted">Sampai 100 layanan terakhir.</p></div><a class="text-link" href="<?= admin_escape(admin_page_url('requests')) ?>">Semua →</a></div>
           <?php if (!$rows): ?><div class="empty-state">Belum ada pengajuan servis.</div><?php else: ?>
           <div class="table-wrap"><table><thead><tr><th>PELANGGAN</th><th>LAYANAN</th><th>AREA / JADWAL</th><th>STATUS</th><th>ESTIMASI</th></tr></thead><tbody>
-          <?php foreach (array_slice($rows, 0, 8) as $row): ?><tr><td><strong><?= admin_escape($row['customer_name']) ?></strong><small><?= admin_escape($row['email']) ?></small></td><td><?= admin_escape($row['service_name']) ?><small><?= admin_escape($row['device_name']) ?></small></td><td><?= admin_escape($row['service_area']) ?><small><?= admin_escape($row['requested_at']) ?></small></td><td><span class="tag"><?= admin_escape($row['status']) ?></span></td><td><?= admin_escape(admin_money($row['estimate_amount'])) ?></td></tr><?php endforeach; ?>
+          <?php foreach (array_slice($rows, 0, 8) as $row): ?><tr><td><strong><?= admin_escape($row['customer_name']) ?></strong><small><?= admin_escape($row['email']) ?></small></td><td><?= admin_escape($row['service_name']) ?><small><?= admin_escape($row['device_name']) ?></small></td><td><?= admin_escape($row['service_area']) ?><small><?= admin_escape(date('d M Y · H.i', strtotime($row['requested_at']))) ?></small></td><td><span class="tag status-<?= admin_escape($row['status']) ?>"><?= admin_escape(admin_status_label($row['status'])) ?></span></td><td><?= admin_escape(admin_money($row['estimate_amount'])) ?></td></tr><?php endforeach; ?>
           </tbody></table></div><?php endif; ?>
         </section>
       <?php elseif ($page === 'requests'): ?>
